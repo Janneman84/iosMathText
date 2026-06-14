@@ -22,13 +22,13 @@ Then all you have to do is add `import iosMathText` and `import iosMath` and you
 
 ```swift
 import iosMathText
-import iosMath // To access font name consts
+import iosMath // For accessing font name consts
 ```
 ```swift
 /*
   Instance an iosMathTextView and/or iosMathLabel and add it to your UI.
-  These are subviews of UITextView and UILabel and add one extra method: setMathFont()
-  Make sure call this before setting the text.
+  These are subclasses of UITextView and UILabel and add one extra method: setMathFont().
+  Make sure to call this before setting the text.
 */
 
 let mathText = "To solve the equation \\(5x^2 = 100\\),\n\n\\[5x^2 = 100\\]\n\n\\[\\frac{5x^2}{5} = \\frac{100}{5}\\]\n\n\\[x^2 = 20\\]\n\nNow, to solve for \\(x\\), you take the square root of both sides. Remember, when you take the square root of both sides of an equation, you must consider both the positive and negative root solutions:\n\n\\[x = \\pm\\sqrt{20}\\]\n\nSimplifying the square root of 20, knowing that \\(20 = 4 \\times 5\\) and \\(\\sqrt{4}\\) is 2, we get:\n\n\\[x = \\pm 2\\sqrt{5}\\]"
@@ -56,3 +56,18 @@ iosMathTextView.attributedText = parsedAttributedString
 ```
 
 So first preparse, then parse, then set to `iosMathTextView`/`iosMathTextLabel`.
+
+## Limitations
+- Currently specified colors in LaTeX code will be ignored (or may break things when it's a background color).
+- You probably want to keep `iosMathTextView.isEditable` false.
+- `minimumFontScale` of `iosTextLabel` is best left to 1.0.
+
+These limitations may be addressed in future releases.
+
+## Future
+I'll keep working on performance improvements, api updates, extra compatibility and new features. Let me know what you would like to see next.
+
+## License
+iosMathText is available under the MIT license. See the [LICENSE](./LICENSE)
+file for more info.
+
