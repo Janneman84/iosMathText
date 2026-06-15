@@ -29,36 +29,6 @@ extension NSAttributedString {
         let scale: CGFloat = max(ProcessInfo.processInfo.isMacCatalystApp ? 2.0 : 1.0, pixelDensity)
         let tempMutableString = NSMutableAttributedString(attributedString: self)
 
-        // round spacing to the nearest pixel
-        let fullRange = NSRange(location: 0, length: tempMutableString.length)
-        var prevlineSpacing: CGFloat = 0
-        var prevParagraphSpacing: CGFloat = 0
-        var prevParagraphSpacingBefore: CGFloat = 0
-        
-        
-        tempMutableString.enumerateAttribute(.paragraphStyle, in: fullRange, options: []) { (value, range, stop) in
-            if let paragraphStyle = value as? NSMutableParagraphStyle {
-
-                paragraphStyle.lineHeightMultiple = 0
-                                
-                if paragraphStyle.lineSpacing != prevlineSpacing && paragraphStyle.lineSpacing != 0 {
-                    prevlineSpacing = round(paragraphStyle.lineSpacing * scale)/scale
-                    paragraphStyle.lineSpacing = prevlineSpacing
-                }
-
-                if paragraphStyle.paragraphSpacing != prevParagraphSpacing && paragraphStyle.paragraphSpacing != 0 {
-                    prevParagraphSpacing = round(paragraphStyle.paragraphSpacing * scale)/scale
-                    paragraphStyle.paragraphSpacing = prevParagraphSpacing
-                }
-                
-                if paragraphStyle.paragraphSpacingBefore != prevParagraphSpacingBefore && paragraphStyle.paragraphSpacingBefore != 0 {
-                    prevParagraphSpacingBefore = round(paragraphStyle.paragraphSpacingBefore * scale)/scale
-                    paragraphStyle.paragraphSpacingBefore = prevParagraphSpacingBefore
-                }
-            }
-        }
-        
-
         if let matches = NSMutableAttributedString.parseRegex?.matches(in: self.string, options: [], range: NSRange(location: 0, length: self.string.utf16.count)) {
             if matches.isEmpty {
                 return self
@@ -160,3 +130,148 @@ extension NSAttributedString {
         }
     }
 }
+
+/*
+@available(iOS 16, *)
+extension AttributedString {
+
+    func parseMath(
+        pixelDensity: CGFloat,
+        mathFontName: String = "LatinModern",
+        mathFontScaleInline: CGFloat = 1.1,
+        mathFontScaleDisplay: CGFloat = 1.2
+    ) -> AttributedString {
+        
+        let scale: CGFloat = max(ProcessInfo.processInfo.isMacCatalystApp ? 2.0 : 1.0, pixelDensity)
+        var tempString = self
+        let plainString = String(tempString.characters)
+
+        // 1. Definieer de Swift Regex Literal met compile-time checks en Strongly Typed Captures.
+        // Groep 1 (tag): Vangt \\[, $$, \\(, of $ op.
+        // Groep 2 (formula): Vangt de wiskundige LaTeX code ertussen op (lazy matching).
+//        let mathRegex = /\\\[(?<display1>.*?)\\\]|\$\$(?<display2>.*?)\$\$|\\\((?<inline1>.*?)\\\)|\$(?<inline2>.*?)\$/
+        
+        let mathRegex = #/(?:\\\[(.*?)\\\])|(?:\$\$(.*?)\$\$)|(?:\\\((.*?)\\\))|(?:\$(.*?)\$)/#
+
+        // 2. Haal alle matches op via de native Swift string API
+        let matches = plainString.matches(of: mathRegex) //
+        if matches.isEmpty {
+            return self
+        }
+
+        // 3. Verwerk de matches in omgekeerde volgorde om verschuiving van String indices te voorkomen
+        for match in matches.reversed() {
+            let fullRange = match.range
+            
+            // Bepaal de modus en formule op basis van welke capture group gevuld is
+            let centered: Bool
+            let rawFormula: Substring
+            
+            if let display1 = match.output.1 {
+                centered = true
+                rawFormula = display1
+            } else if let display2 = match.output.2 {
+                centered = true
+                rawFormula = display2
+            } else if let inline1 = match.output.3 {
+                centered = false
+                rawFormula = inline1
+            } else if let inline2 = match.output.4 {
+                centered = false
+                rawFormula = inline2
+            } else {
+                continue
+            }
+            
+            let substring = rawFormula.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            // Zet String.Index range om naar AttributedString.Index range
+            guard let attrStart = AttributedString.Index(fullRange.lowerBound, within: tempString),
+                  let attrEnd = AttributedString.Index(fullRange.upperBound, within: tempString) else { continue }
+            
+            let subRange = attrStart..<attrEnd
+            
+            // Haal styling-informatie direct type-safe op uit de AttributedString container
+            let fontSize = tempString[subRange].font?.pointSize ?? 14
+            let fontScale = centered ? mathFontScaleDisplay : mathFontScaleInline
+            let mathFontSize = round(fontScale > 5 ? fontScale * scale : fontSize * fontScale * scale) / scale
+            
+            let uiColor = tempString[subRange].foregroundColor ?? .red
+            
+            if let image = imageWithLabel(string: substring, fontSize: mathFontSize, labelMode: centered ? .display : .text) {
+                let attachment = ScalingTextAttachment()
+                attachment.accessibilityHint = centered ? "\\[\(substring)\\]" : "\\(\(substring)\\)"
+                attachment.image = image.withTintColor(UIColor(uiColor))
+                
+                // Converteer het UIKit attachment via NSAttributedString naar AttributedString
+                let nsReplacement = NSAttributedString(attachment: attachment)
+                var replacement = AttributedString(nsReplacement)
+                
+                if centered {
+                    let centeredParagraphStyle = NSMutableParagraphStyle()
+                    centeredParagraphStyle.alignment = .center
+                    
+                    var container = AttributeContainer()
+                    container.paragraphStyle = centeredParagraphStyle
+                    
+                    var centeredAttributedString = AttributedString("\u{200B}")
+                    centeredAttributedString.mergeAttributes(container)
+                    centeredAttributedString.append(replacement)
+                    
+                    tempString.replaceSubrange(subRange, with: centeredAttributedString)
+                } else {
+                    tempString.replaceSubrange(subRange, with: replacement)
+                }
+                
+                // Voeg haarsplaties toe als de attachment aan het einde van de string staat
+                if fullRange.upperBound == plainString.endIndex {
+                    tempString.append(AttributedString("  "))
+                }
+            } else {
+                // Toon de platte formule bij een LaTeX parsingfout
+                tempString.replaceSubrange(subRange, with: AttributedString(substring))
+            }
+        }
+        
+        tempString.append(AttributedString("​"))
+        return tempString
+
+        // Interne helper-functie (blijft ongewijzigd voor UIKit beeldrendering)
+        func imageWithLabel(string: String, fontSize: CGFloat, labelMode: MTMathUILabelMode) -> UIImage? {
+            let label = MTMathUILabel()
+            label.mode = labelMode
+            label.contentScaleFactor = scale
+            label.fontSize = fontSize
+            label.font = MTFontManager.fontManager.font(withName: mathFontName, size: label.fontSize)
+            label.latex = string
+
+            if label.error != nil {
+                print(label.error!)
+                return nil
+            }
+            
+            let inset = round(label.fontSize * 0.025 * scale) / scale
+            label.contentInsets = .init(top: inset, left: inset, bottom: inset * 2, right: inset)
+            label.frame = .init(
+                origin: .zero,
+                size: .init(
+                    width: ceil(label.intrinsicContentSize.width * scale) / scale,
+                    height: ceil(label.intrinsicContentSize.height * scale) / scale
+                )
+            )
+
+            UIGraphicsBeginImageContextWithOptions(label.bounds.size, false, scale)
+            defer { UIGraphicsEndImageContext() }
+            label.layer.render(in: UIGraphicsGetCurrentContext()!)
+            
+            let image = UIGraphicsGetImageFromCurrentImageContext()
+            let baselineOffset = floor((label.displayList?.position.y ?? 0) * scale) / scale
+            let nudge = 0.45 / scale
+            
+            return image?.cgImage == nil ? nil : UIImage(cgImage: image!.cgImage!, scale: scale, orientation: .downMirrored)
+                .withBaselineOffset(fromBottom: baselineOffset + nudge)
+                .withRenderingMode(.alwaysTemplate)
+        }
+    }
+}
+*/
