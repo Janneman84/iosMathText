@@ -10,6 +10,8 @@ import iosMath
 
 extension NSAttributedString {
     
+    private static let mtMathUILabel = MTMathUILabel()
+    
     /**
      Checks for LaTeX math tags in the text and replaces them with LaTeX styled inline images of the containing equations. The equation font size will be relative to its surrounding text.
 
@@ -89,7 +91,7 @@ extension NSAttributedString {
         return tempMutableString
 
         func imageWithLabel(string: String, fontSize: CGFloat, labelMode: MTMathUILabelMode) -> UIImage? {
-            let label = MTMathUILabel()
+            let label = Self.mtMathUILabel
             label.mode = labelMode
             label.contentScaleFactor = scale
             label.fontSize = fontSize
@@ -110,11 +112,14 @@ extension NSAttributedString {
                 bottom: inset*2,
                 right:  inset,
             )
+            
+            // this getter is pretty heavy actually
+            let ics = label.intrinsicContentSize
             label.frame = .init(
                 origin: .init(x: 0, y: 0),
                 size: .init(
-                    width: ceil(label.intrinsicContentSize.width*scale)/scale,
-                    height: ceil(label.intrinsicContentSize.height*scale)/scale
+                    width: ceil(ics.width*scale)/scale,
+                    height: ceil(ics.height*scale)/scale
                 )
             )
 
