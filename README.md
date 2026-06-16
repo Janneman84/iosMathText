@@ -28,7 +28,7 @@ import iosMath // For accessing font name consts
 /*
   Instance an iosMathTextView and/or iosMathLabel and add it to your UI.
   These are subclasses of UITextView and UILabel and add one extra method: setMathFont().
-  Make sure to call this before setting the text.
+  Make sure to set the text font/fontsize, textColor, textAlignment and call setMathFont() before setting (attributed) text.
 */
 
 let mathText = "To solve the equation \\(5x^2 = 100\\),\n\n\\[5x^2 = 100\\]\n\n\\[\\frac{5x^2}{5} = \\frac{100}{5}\\]\n\n\\[x^2 = 20\\]\n\nNow, to solve for \\(x\\), you take the square root of both sides. Remember, when you take the square root of both sides of an equation, you must consider both the positive and negative root solutions:\n\n\\[x = \\pm\\sqrt{20}\\]\n\nSimplifying the square root of 20, knowing that \\(20 = 4 \\times 5\\) and \\(\\sqrt{4}\\) is 2, we get:\n\n\\[x = \\pm 2\\sqrt{5}\\]"
