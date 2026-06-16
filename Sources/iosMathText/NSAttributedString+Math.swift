@@ -53,16 +53,15 @@ extension NSAttributedString {
                 if startIndex <= endIndex {
 
                     let substring = String(self.string[startIndex..<endIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
-                                       
-                    var fontSize = (tempMutableString.attribute(.font, at: range.location, effectiveRange: nil) as? UIFont)?.pointSize ?? 14
+                    var fontSize = (tempMutableString.attribute(.font, at: range.location, effectiveRange: nil) as? UIFont)?.pointSize ?? 12
                     var fontScale = centered ? mathFontScaleDisplay : mathFontScaleInline
                     let mathFontSize = round(fontScale > 5 ? fontScale * scale : fontSize * fontScale * scale) / scale
-                    let color = tempMutableString.attribute(.foregroundColor, at: range.location, effectiveRange: nil) as? UIColor ?? .red
+                    let color = tempMutableString.attribute(.foregroundColor, at: range.location, effectiveRange: nil) as? UIColor ?? .black
                     
-                    if let image = imageWithLabel(string: substring, fontSize: mathFontSize, labelMode: centered ? .display : .text) {
+                    if let image = imageWithLabel(string: substring, fontSize: mathFontSize, labelMode: centered ? .display : .text, color: color) {
                         let attachment = ScalingTextAttachment()
+                        attachment.image = image
                         attachment.accessibilityHint = centered ? "\\[\(substring)\\]" : "\\(\(substring)\\)"
-                        attachment.image = image.withTintColor(color)
                                                
                         let replacement = NSAttributedString(attachment: attachment)
 
@@ -90,7 +89,7 @@ extension NSAttributedString {
         tempMutableString.append(NSAttributedString(string: "​"))
         return tempMutableString
 
-        func imageWithLabel(string: String, fontSize: CGFloat, labelMode: MTMathUILabelMode) -> UIImage? {
+        func imageWithLabel(string: String, fontSize: CGFloat, labelMode: MTMathUILabelMode, color: UIColor) -> UIImage? {
             let label = Self.mtMathUILabel
             label.mode = labelMode
             label.contentScaleFactor = scale
@@ -131,7 +130,7 @@ extension NSAttributedString {
             let baselineOffset = floor((label.displayList?.position.y ?? 0)*scale)/scale
             let nudge = 0.45/scale
             
-            return image?.cgImage == nil ? nil : UIImage(cgImage: image!.cgImage!, scale: scale, orientation: .downMirrored).withBaselineOffset(fromBottom: baselineOffset + nudge).withRenderingMode(.alwaysTemplate)
+            return image?.cgImage == nil ? nil : UIImage(cgImage: image!.cgImage!, scale: scale, orientation: .downMirrored).withBaselineOffset(fromBottom: baselineOffset + nudge).withTintColor(color, renderingMode: .alwaysTemplate)
         }
     }
 }

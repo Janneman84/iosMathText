@@ -9,12 +9,12 @@ import UIKit
 import iosMath
 
 /// Label that scans for LaTeX tags in the text and replaces them with LaTeX styled inline images of the containing equations.
-/// Use `setMathFont()` first, then just set `text` or `attributedText` like normal.
+/// Set math font with `setMathFont()` and text font/size/color/alignment **first**, then just set `text` or `attributedText` like normal.
 ///
 /// If you are using parsers for e.g. Markdown or HTML you should first preparse the text for math with the `preparseMath()` string extension.
 /// This prevents other parsers from messing with the LaTeX code. Once finished parsing set the text to this view.
 ///
-public class iosMathLabel: UILabel {
+open class iosMathLabel: UILabel {
  
     var mathFontName: String = MTFontNameLatinModern
     var mathFontScaleInline: CGFloat = 1.1
@@ -25,14 +25,14 @@ public class iosMathLabel: UILabel {
     ///   - name: Add `import iosMath` and you should be able to access consts that start with `MTFontName`.  Defaults to MTFontNameLatinModern.
     ///   - inlineScale: Sets the size factor of the math font relative to the text. Use a value over 5 for absolute size. Defaults to 1.1.
     ///   - displayScale: Same as inlineScale but for centered isolated math. Defaults to 1.2.
-    public func setMathFont(name: String, inlineScale: CGFloat, displayScale: CGFloat) {
+    open func setMathFont(name: String, inlineScale: CGFloat, displayScale: CGFloat) {
         self.mathFontName = name
         self.mathFontScaleInline = max(0, inlineScale)
         self.mathFontScaleDisplay = max(0, displayScale)
     }
     
     var ignoreAttributedTextDidSet = false
-    public override var attributedText: NSAttributedString! { didSet {
+    open override var attributedText: NSAttributedString! { didSet {
 
         guard !ignoreAttributedTextDidSet && window?.windowScene?.screen != nil else { return }
         let scale = window?.windowScene?.screen.scale ?? 2.0
@@ -49,7 +49,7 @@ public class iosMathLabel: UILabel {
         }
     }}
     
-    public override func didMoveToWindow() {
+    open override func didMoveToWindow() {
         super.didMoveToWindow()
         attributedText = attributedText
     }
@@ -58,30 +58,31 @@ public class iosMathLabel: UILabel {
 
 
 /// TextView that scans for LaTeX tags in the text and replaces them with LaTeX styled inline images of the containing equations.
-/// Use `setMathFont()` first, then just set `text` or `attributedText` like normal.
+/// Set math font with `setMathFont()` and text font/size/color/alignment **first**, then just set `text` or `attributedText` like normal.
 ///
 /// If you are using parsers for e.g. Markdown or HTML you should first preparse the text for math with the `preparseMath()` string extension.
 /// This prevents other parsers from messing with the LaTeX code. Once finished parsing set the text to this view.
 ///
-public class iosMathTextView: UITextView {
+open class iosMathTextView: UITextView {
     
     var mathFontName: String = MTFontNameLatinModern
     var mathFontScaleInline: CGFloat = 1.1
     var mathFontScaleDisplay: CGFloat = 1.2
     
-    /// Sets the math font properties. Make sure to set this *before* setting the text.
+    /// Sets the math font properties. Make sure to set this *before* setting the (attributed) text.
+    /// Also make sure to set text font/fontsize *before* setting the (attributed) text.
     /// - Parameters:
     ///   - name: Add `import iosMath` and you should be able to access consts that start with `MTFontName`.  Defaults to MTFontNameLatinModern.
     ///   - inlineScale: Sets the size factor of the math font relative to the text. Use a value over 5 for absolute size. Defaults to 1.1.
     ///   - displayScale: Same as inlineScale but for centered isolated math. Defaults to 1.2.
-    public func setMathFont(name: String, inlineScale: CGFloat, displayScale: CGFloat) {
+    open func setMathFont(name: String, inlineScale: CGFloat, displayScale: CGFloat) {
         self.mathFontName = name
         self.mathFontScaleInline = max(0, inlineScale)
         self.mathFontScaleDisplay = max(0, displayScale)
     }
 
     var ignoreAttributedTextDidSet = false
-    public override var attributedText: NSAttributedString! { didSet {
+    open override var attributedText: NSAttributedString! { didSet {
 
         guard !ignoreAttributedTextDidSet && window?.windowScene?.screen != nil else { return }
         let scale = window?.windowScene?.screen.scale ?? 2.0
@@ -98,13 +99,13 @@ public class iosMathTextView: UITextView {
         }
     }}
     
-    public override func didMoveToWindow() {
+    open override func didMoveToWindow() {
         super.didMoveToWindow()
         attributedText = attributedText
     }
     
     #if os(iOS)
-    public override func copy(_ sender: Any?) {
+    open override func copy(_ sender: Any?) {
         //find text attachments and replace them with their respective accessibilityHint, then copy the result to clipboard
         
         var textAttachments = [(range: NSRange, string: String)]()
