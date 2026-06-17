@@ -94,7 +94,7 @@ extension NSAttributedString {
             label.mode = labelMode
             label.contentScaleFactor = scale
             label.fontSize = fontSize
-            label.font = MTFontManager.fontManager.font(withName: MTFontNameXITS, size: label.fontSize)
+            label.font = MTFontManager.fontManager.font(withName: mathFontName, size: label.fontSize)
 //            label.backgroundColor = .systemTeal.withAlphaComponent(0.75)
             label.latex = string
 
