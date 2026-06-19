@@ -31,6 +31,10 @@ open class iosMathLabel: UILabel {
         self.mathFontScaleDisplay = max(0, displayScale)
     }
     
+    open override var text: String? { didSet {
+        attributedText = attributedText
+    }}
+    
     var ignoreAttributedTextDidSet = false
     open override var attributedText: NSAttributedString! { didSet {
 
