@@ -1,0 +1,36 @@
+name: Update Commit ID
+
+on:
+  push:
+    branches:
+      - main # Verander dit naar 'master' of je actieve branch indien nodig
+
+permissions:
+  contents: write
+
+jobs:
+  update-id:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # Vereist om de commit geschiedenis correct te lezen
+
+      - name: Write commit ID to file
+        run: |
+          echo "${{ github.sha }}" > commit_id.txt
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@://github.com"
+          
+          # Alleen committen als het bestand daadwerkelijk is veranderd
+          git add commit_id.txt
+          if git diff --staged --quiet; then
+            echo "Geen wijzigingen in Commit ID."
+          else
+            git commit -m "chore: update commit_id.txt naar ${{ github.sha }} [skip ci]"
+            git push
+          fi
