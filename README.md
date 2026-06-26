@@ -1,7 +1,7 @@
 # iosMathText
 Show text with beautifully rendered math equations in your iOS app!
 
-This package leverages the power of <a href="https://github.com/kostub/iosMath">iosMath</a> to create `iosMathTextView` and `iosMathLabel`. These views process text with LaTeX math code and turns it into something like this: 
+This package leverages the power of <a href="https://github.com/kostub/iosMath">iosMath</a> to create `MathTextView` and `MathLabel`. These views process text with LaTeX math code and turns it into something like this: 
 
 <img width="264" height="585" alt="equationsolve" src="https://github.com/user-attachments/assets/774a8ed5-b717-47db-8d20-4f065394b773" />
 
@@ -16,7 +16,7 @@ This package is designed and tested to work together with other text parsers, li
 
 First install this package through SPM using the Github url `https://github.com/Janneman84/iosMathText`. Make sure the library is linked to the target.
 
-Then all you have to do is add `import iosMathText` and `import iosMath` and you should be able to access `iosMathText` and `iosMathLabel`.
+Then all you have to do is add `import iosMathText` and `import iosMath` and you should be able to access `MathText` and `MathLabel`.
 
 ## Usage example
 
@@ -26,18 +26,17 @@ import iosMath // For accessing font name consts
 ```
 ```swift
 /*
-  Instance an iosMathTextView and/or iosMathLabel and add it to your UI.
+  Instance an MathTextView and/or MathLabel and add it to your UI.
   These are subclasses of UITextView and UILabel and add one extra method: setMathFont().
-  Make sure to set the text font/fontsize, textColor, textAlignment and call setMathFont() before setting (attributed) text.
 */
 
 let mathText = "To solve the equation \\(5x^2 = 100\\),\n\n\\[5x^2 = 100\\]\n\n\\[\\frac{5x^2}{5} = \\frac{100}{5}\\]\n\n\\[x^2 = 20\\]\n\nNow, to solve for \\(x\\), you take the square root of both sides. Remember, when you take the square root of both sides of an equation, you must consider both the positive and negative root solutions:\n\n\\[x = \\pm\\sqrt{20}\\]\n\nSimplifying the square root of 20, knowing that \\(20 = 4 \\times 5\\) and \\(\\sqrt{4}\\) is 2, we get:\n\n\\[x = \\pm 2\\sqrt{5}\\]"
 
-iosMathTextView.setMathFont(name: MTFontNameLatinModern, inlineScale: 1.1, displayScale: 1.2)
-iosMathTextView.text = mathText
+mathTextView.setMathFont(name: MTFontNameLatinModern, inlineScale: 1.1, displayScale: 1.2)
+mathTextView.text = mathText
         
-iosMathLabel.setMathFont(name: MTFontNameNewComputerModern, inlineScale: 15, displayScale: 20)
-iosMathLabel.text = mathText
+mathLabel.setMathFont(name: MTFontNameNewComputerModern, inlineScale: 15, displayScale: 20)
+mathLabel.text = mathText
 ```
 The scale params let you choose the font size of the equation relative to the font size of the text. However a value over 5 will treated as an absolute size.
 
@@ -48,8 +47,7 @@ This is an example to combine iosMathText with <a href="https://github.com/chris
 ```swift
 let latexMarkdownString = ...
 
-let mdParser = CDMarkdownParser(fontColor: .label) // set .label for dark mode compatibility
-mdParser.squashNewlines = false
+let mdParser = CDMarkdownParser()
 let preparsedString = latexMarkdownString.preparseMath()
 let parsedAttributedString = mdParser.parse(preparsedString)
 iosMathTextView.attributedText = parsedAttributedString
@@ -58,9 +56,8 @@ iosMathTextView.attributedText = parsedAttributedString
 So first preparse, then parse, then set to `iosMathTextView`/`iosMathTextLabel`.
 
 ## Limitations
-- Currently specified colors in LaTeX code will be ignored (or may break things when it's a background color).
 - You probably want to keep `iosMathTextView.isEditable` false.
-- `minimumFontScale` of `iosTextLabel` is best left to 1.0.
+- `minimumFontScale` of `iosTextLabel` is best left to 1.0 for now.
 
 These limitations may be addressed in future releases.
 
