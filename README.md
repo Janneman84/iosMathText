@@ -32,13 +32,17 @@ import iosMath // For accessing font name consts
 
 let mathText = "To solve the equation \\(5x^2 = 100\\),\n\n\\[5x^2 = 100\\]\n\n\\[\\frac{5x^2}{5} = \\frac{100}{5}\\]\n\n\\[x^2 = 20\\]\n\nNow, to solve for \\(x\\), you take the square root of both sides. Remember, when you take the square root of both sides of an equation, you must consider both the positive and negative root solutions:\n\n\\[x = \\pm\\sqrt{20}\\]\n\nSimplifying the square root of 20, knowing that \\(20 = 4 \\times 5\\) and \\(\\sqrt{4}\\) is 2, we get:\n\n\\[x = \\pm 2\\sqrt{5}\\]"
 
+defer { mathTextView.layoutIfNeeded() } // optional
 mathTextView.setMathFont(name: MTFontNameLatinModern, inlineScale: 1.1, displayScale: 1.2)
 mathTextView.text = mathText
-        
+
+defer { mathLabel.layoutIfNeeded() } // optional
 mathLabel.setMathFont(name: MTFontNameNewComputerModern, inlineScale: 15, displayScale: 20)
 mathLabel.text = mathText
 ```
-The scale params let you choose the font size of the equation relative to the font size of the text. However a value over 5 will treated as an absolute size.
+`layoutIfNeeded()` is not strictly necessary but if you encounter issues you could try it.
+
+The scale params let you choose the font size of the equation relative to the font size of the text. However a value over 5 will be treated as an absolute size.
 
 ### Preparsing for e.g. Markdown parsers
 Other parsers may break LaTeX codes inside your string. To prevent this you may call `preparseMath()` on the (attributed) string. This will base64 encode the LaTeX codes in the string to keep them save. The iosMathText parser will decode this automatically.
@@ -56,10 +60,7 @@ iosMathTextView.attributedText = parsedAttributedString
 So first preparse, then parse, then set to `iosMathTextView`/`iosMathTextLabel`.
 
 ## Limitations
-- You probably want to keep `iosMathTextView.isEditable` false.
-- `minimumFontScale` of `iosTextLabel` is best left to 1.0 for now.
-
-These limitations may be addressed in future releases.
+You probably want to keep `iosMathTextView.isEditable` false. This package is meant for showing equations, not editing them. If you select text with an equation and copy/paste it you will see the LaTeX code in place of the equation.
 
 ## Future
 I'll keep working on performance improvements, api updates, extra compatibility and new features. Let me know what you would like to see next.
