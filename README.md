@@ -57,7 +57,7 @@ let parsedAttributedString = mdParser.parse(preparsedString)
 iosMathTextView.attributedText = parsedAttributedString
 ```
 
-So first preparse, then parse, then set to `iosMathTextView`/`iosMathTextLabel`.
+So first preparse, then parse, then set to `MathTextView`/`MathTextLabel`.
 
 ## Limitations
 You probably want to keep `iosMathTextView.isEditable` false. This package is meant for showing equations, not editing them. If you select text with an equation and copy/paste it you will see the LaTeX code in place of the equation.
