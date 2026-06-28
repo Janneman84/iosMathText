@@ -43,6 +43,12 @@ extension NSAttributedString {
                 let firstChar = String.Index(utf16Offset: range.location + 0, in: self.string)
                 let secondChar = String.Index(utf16Offset: range.location + 1, in: self.string)
                 let lastChar = String.Index(utf16Offset: range.location + range.length, in: self.string)
+                var addInvisibleTextAttachment = false
+                if self.string.utf16.count > (range.location + range.length + 1) {
+                    let nextCharIndex = String.Index(utf16Offset: range.location + range.length + 1, in: self.string)
+                    let nextChar = String(self.string[lastChar..<nextCharIndex])
+                    addInvisibleTextAttachment = nextChar == "\n"
+                }
                 let tag = String(self.string[firstChar...secondChar])
                 
                 let centered = ["\\[", "$$"].contains(tag)
@@ -69,6 +75,9 @@ extension NSAttributedString {
                     
                     attachment.accessibilityHint = substring
                     let replacement = NSMutableAttributedString(attachment: attachment)
+                    if addInvisibleTextAttachment {
+                        replacement.append(NSAttributedString(attachment: InvisibleTextAttachment())) // fixes rare weird issue when truncating
+                    }
                     replacement.addAttributes(attrs, range: NSRange(location: 0, length: replacement.length))
                     tempMutableString.replaceCharacters(in: range, with: replacement)
                 }
