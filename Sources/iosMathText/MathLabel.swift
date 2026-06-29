@@ -18,6 +18,16 @@ open class iosMathLabel: MathLabel {}
 /// This prevents other parsers from messing with the LaTeX code. Once finished parsing set the text or attributedText to this view.
 ///
 open class MathLabel: UILabel {
+    
+    public override init(frame: CGRect) {
+        super.init(frame: frame)
+        NotificationCenter.default.addObserver(self, selector: #selector(scheduleUpdateMath), name: UIContentSizeCategory.didChangeNotification, object: nil)
+    }
+    
+    public required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        NotificationCenter.default.addObserver(self, selector: #selector(scheduleUpdateMath), name: UIContentSizeCategory.didChangeNotification, object: nil)
+    }    
  
     var mathFontName: String = MTFontNameLatinModern
     var mathFontScaleInline: CGFloat = 1.1
@@ -132,7 +142,7 @@ open class MathLabel: UILabel {
         layingoutSubviews = false
     }
     
-    public func updateMath() {
+    func updateMath() {
         guard updateScheduled else { return }
         updateScheduled = false
         guard !ignoreAttributedTextDidSet else { return }
@@ -152,7 +162,7 @@ open class MathLabel: UILabel {
     }
     
     var updateScheduled = false
-    func scheduleUpdateMath() {
+    @objc func scheduleUpdateMath() {
         guard !updateScheduled else { return }
         updateScheduled = true
         setNeedsLayout() //TODO necessary?

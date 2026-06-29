@@ -11,6 +11,7 @@ import iosMath
 class MathTextAttachment: NSTextAttachment {
     
     private static let mtMathUILabel = MTMathUILabel()
+    private static let appearanceChangeNotification = Notification.Name("_UIScreenDefaultTraitCollectionDidChangeNotification")
 
     private(set) var latex: String = ""
     private(set) var substring: String = "" // latex + open/close tags
@@ -20,10 +21,7 @@ class MathTextAttachment: NSTextAttachment {
     private(set) var fontSize: CGFloat = 14
     private(set) var mode: MTMathUILabelMode = .text
     private var renderingMode: UIImage.RenderingMode = .alwaysTemplate
-    private var key: String {
-        "\(latex);\(font);\(fontSize);\(scale);\(mode.rawValue);\(renderingMode == .alwaysOriginal ? color.debugDescription : "")"
-    }
-    
+
     func update(latex: String? = nil, substring: String? = nil, font: String? = nil, fontSize: CGFloat? = nil, color: UIColor? = nil, scale: CGFloat? = nil, mode: MTMathUILabelMode? = nil, updateImage: Bool = true) -> Bool {
 
         let dontUpdateImage = !updateImage
@@ -34,10 +32,10 @@ class MathTextAttachment: NSTextAttachment {
         }        
         if let latex, self.latex != latex {
             self.latex = latex
-            NotificationCenter.default.removeObserver(self)
+            NotificationCenter.default.removeObserver(self, name: Self.appearanceChangeNotification, object: nil)
             if latex.contains("color") {
                 renderingMode = .alwaysOriginal
-                NotificationCenter.default.addObserver(self, selector: #selector(appearanceChanged), name: Notification.Name("_UIScreenDefaultTraitCollectionDidChangeNotification"), object: nil)
+                NotificationCenter.default.addObserver(self, selector: #selector(appearanceChanged), name: Self.appearanceChangeNotification, object: nil)
             } else {
                 renderingMode = .alwaysTemplate
             }
@@ -171,18 +169,5 @@ class MathTextAttachment: NSTextAttachment {
             width: (image.size.width * scalingFactor) - 1, // leave a little more room for a zero width space to fit behind instead of under
             height: image.size.height * scalingFactor
         )
-    }
-}
-
-class InvisibleTextAttachment: NSTextAttachment {
-    @available(iOS 15.0, tvOS 15.0, *) //fallback for older iOS below
-    override func attachmentBounds(for attributes: [NSAttributedString.Key : Any], location: any NSTextLocation, textContainer: NSTextContainer?, proposedLineFragment: CGRect, position: CGPoint) -> CGRect {
-        return .zero
-    }
-    
-    //This override will only get called in case TextView uses TextKit 1,
-    //i.e. iOS 14 or lower or forcing to use TextKit 1 text layout in constructor or storyboard.
-    override func attachmentBounds(for textContainer: NSTextContainer?, proposedLineFragment lineFrag: CGRect, glyphPosition position: CGPoint, characterIndex charIndex: Int) -> CGRect {
-        return .zero
     }
 }

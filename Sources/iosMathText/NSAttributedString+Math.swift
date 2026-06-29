@@ -11,7 +11,7 @@ import iosMath
 extension NSAttributedString {
     
     private static let mtMathUILabel = MTMathUILabel()
-    
+
     /**
      Checks for LaTeX math tags in the text and replaces them with LaTeX styled inline images of the containing equations. The equation font size will be relative to its surrounding text.
 
@@ -21,67 +21,87 @@ extension NSAttributedString {
      - Parameter mathFontScaleDisplay: Same as inlineScale but for centered isolated math. Defaults to 1.2.
      - Returns: Attributed String
      */
-    func parseMath (
+    func parseMath(
         pixelDensity: CGFloat,
         mathFontName: String = MTFontNameLatinModern,
         mathFontScaleInline: CGFloat = 1.1,
-        mathFontScaleDisplay: CGFloat = 1.2,
+        mathFontScaleDisplay: CGFloat = 1.2
     ) -> NSAttributedString {
        
+        let totalLength = self.length
+        guard totalLength > 0,
+              let matches = NSMutableAttributedString.parseRegex?.matches(in: self.string, options: [], range: NSRange(location: 0, length: totalLength)),
+              !matches.isEmpty else {
+            return self
+        }
+
         let scale: CGFloat = max(ProcessInfo.processInfo.isMacCatalystApp ? 2.0 : 1.0, pixelDensity)
         let tempMutableString = NSMutableAttributedString(attributedString: self)
+        
+        // Cache the Swift String and its UTF16 view for fast access outside the loop
+        let swiftString = self.string
 
-        if let matches = NSMutableAttributedString.parseRegex?.matches(in: self.string, options: [], range: NSRange(location: 0, length: self.string.utf16.count)) {
-            if matches.isEmpty {
-                return self
-            }
+        for match in matches.reversed() {
+            let range = match.range
+            guard range.location != NSNotFound else { continue }
+            
+            // Convert NSRange to native Swift Range<String.Index> in one optimized step
+            guard let swiftRange = Range(range, in: swiftString) else { continue }
+            let matchedSubstring = swiftString[swiftRange]
+            
+            // Get the first two characters to check the tag via prefix
+            let tag = matchedSubstring.prefix(2)
+            let isCentered = tag == "\\[" || tag == "$$"
+            let isInsetTwo = isCentered || tag == "\\("
+            let inset = isInsetTwo ? 2 : 1
 
-            for match in matches.reversed() {
-                
-                let range = match.range
-                
-                let firstChar = String.Index(utf16Offset: range.location + 0, in: self.string)
-                let secondChar = String.Index(utf16Offset: range.location + 1, in: self.string)
-                let lastChar = String.Index(utf16Offset: range.location + range.length, in: self.string)
-                var addInvisibleTextAttachment = false
-                if self.string.utf16.count > (range.location + range.length + 1) {
-                    let nextCharIndex = String.Index(utf16Offset: range.location + range.length + 1, in: self.string)
-                    let nextChar = String(self.string[lastChar..<nextCharIndex])
-                    addInvisibleTextAttachment = nextChar == "\n"
-                }
-                let tag = String(self.string[firstChar...secondChar])
-                
-                let centered = ["\\[", "$$"].contains(tag)
-                let inset = ["\\(", "\\[", "$$"].contains(tag) ? 2 : 1
-                
-                let startIndex = String.Index(utf16Offset: range.location + inset, in: self.string)
-                let endIndex = String.Index(utf16Offset: range.location + range.length - inset, in: self.string)
-                
-                if startIndex <= endIndex {
-                    
-                    let substring = String(self.string[firstChar..<lastChar])
-                    let latex = String(self.string[startIndex..<endIndex])
-                    let mode = centered ? MTMathUILabelMode.display : .text
-                    
-                    let attachment = MathTextAttachment()
-                    attachment.update(latex: latex, substring: substring, mode: mode, updateImage: false)
-                    var attrs = attributes(at: range.location, effectiveRange: nil)
-                    
-                    if centered {
-                        let centeredParagraphStyle: NSMutableParagraphStyle = ((attrs[.paragraphStyle] as? NSObject)?.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
-                        centeredParagraphStyle.alignment = NSTextAlignment.center
-                        attrs[.paragraphStyle] = centeredParagraphStyle
-                    }
-                    
-                    attachment.accessibilityHint = substring
-                    let replacement = NSMutableAttributedString(attachment: attachment)
-                    if addInvisibleTextAttachment {
-                        replacement.append(NSAttributedString(attachment: InvisibleTextAttachment())) // fixes rare weird issue when truncating
-                    }
-                    replacement.addAttributes(attrs, range: NSRange(location: 0, length: replacement.length))
-                    tempMutableString.replaceCharacters(in: range, with: replacement)
+            // Check for invisible text attachment (if the next character is a newline and NOT the last character of the text)
+            var addNarrowSpace = false
+            let nextIndexInUtf16 = range.location + range.length
+            if nextIndexInUtf16 < totalLength {
+                let nextCharIndex = String.Index(utf16Offset: nextIndexInUtf16, in: swiftString)
+                if nextCharIndex < swiftString.endIndex && swiftString[nextCharIndex] == "\n" {
+                    // The newline is only valid if it is not the very last character of the string
+                    let afterNewlineIndex = swiftString.index(after: nextCharIndex)
+                    addNarrowSpace = afterNewlineIndex < swiftString.endIndex
                 }
             }
+            
+            // Extract the LaTeX code safely using Substring methods without manual index calculations
+            guard matchedSubstring.count >= (inset * 2) else { continue }
+            let latexSubstring = matchedSubstring.dropFirst(inset).dropLast(inset)
+            
+            let substringStr = String(matchedSubstring)
+            let latexStr = String(latexSubstring)
+            let mode: MTMathUILabelMode = isCentered ? .display : .text
+            
+            let attachment = MathTextAttachment()
+            if #available(iOS 15.0, *) {
+                attachment.allowsTextAttachmentView = false
+            }
+            attachment.update(latex: latexStr, substring: substringStr, mode: mode, updateImage: false)
+            attachment.accessibilityHint = substringStr
+            
+            var attrs = self.attributes(at: range.location, effectiveRange: nil)
+            
+            if isCentered {
+                let centeredParagraphStyle: NSMutableParagraphStyle
+                if let existingStyle = attrs[.paragraphStyle] as? NSParagraphStyle {
+                    centeredParagraphStyle = existingStyle.mutableCopy() as! NSMutableParagraphStyle
+                } else {
+                    centeredParagraphStyle = NSMutableParagraphStyle()
+                }
+                centeredParagraphStyle.alignment = .center
+                attrs[.paragraphStyle] = centeredParagraphStyle
+            }
+            
+            let replacement = NSMutableAttributedString(attachment: attachment)
+            if addNarrowSpace {
+                replacement.append(NSAttributedString(string: " ")) // narrow no-break space
+            }
+            
+            replacement.addAttributes(attrs, range: NSRange(location: 0, length: replacement.length))
+            tempMutableString.replaceCharacters(in: range, with: replacement)
         }
         return tempMutableString
     }

@@ -18,6 +18,16 @@ open class iosMathTextView: MathTextView {}
 /// This prevents other parsers from messing with the LaTeX code. Once finished parsing set the text or attributedText to this view.
 ///
 open class MathTextView: UITextView {
+    
+    override init(frame: CGRect, textContainer: NSTextContainer?) {
+        super.init(frame: frame, textContainer: textContainer)
+        NotificationCenter.default.addObserver(self, selector: #selector(scheduleUpdateMath), name: UIContentSizeCategory.didChangeNotification, object: nil)
+    }
+    
+    public required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        NotificationCenter.default.addObserver(self, selector: #selector(scheduleUpdateMath), name: UIContentSizeCategory.didChangeNotification, object: nil)
+    }
 
     var mathFontName: String = MTFontNameLatinModern
     var mathFontScaleInline: CGFloat = 1.1
@@ -128,7 +138,7 @@ open class MathTextView: UITextView {
         layingoutSubviews = false
     }
     
-    public func updateMath() {
+    func updateMath() {
         guard updateScheduled else { return }
         updateScheduled = false
         guard !ignoreAttributedTextDidSet else { return }
@@ -148,7 +158,7 @@ open class MathTextView: UITextView {
     }
     
     var updateScheduled = false
-    func scheduleUpdateMath() {
+    @objc func scheduleUpdateMath() {
         guard !updateScheduled else { return }
         updateScheduled = true
         setNeedsLayout() //TODO necessary?
@@ -172,7 +182,7 @@ open class MathTextView: UITextView {
             mutableAttributedSubstring.replaceCharacters(in: attachment.range, with: attachment.string)
         }
 
-        UIPasteboard.general.string = mutableAttributedSubstring.string
+        UIPasteboard.general.string = mutableAttributedSubstring.string.replacingOccurrences(of: " ", with: "") // remove narrow no-break space used to fix a glitch
     }
     #endif
 
