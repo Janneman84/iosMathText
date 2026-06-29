@@ -59,8 +59,27 @@ iosMathTextView.attributedText = parsedAttributedString
 
 So first preparse, then parse, then set to `MathTextView`/`MathTextLabel`.
 
+## SwiftUI
+SwifUI doesn't support `NSTextAttachment`s (yet) so you'll need to use `UIViewRepresentable` to implement either `MathLabel` or `MathTextView` in your app. You can ask an LLM how to do this.
+
+### MathLabel vs. MathTextView
+In UIKit text is typically displayed using either UILabel or UITextView, which are both subclassed in this package. Which to use?
+
+*MathTextView*
+- selectable text
+- auto url detection
+- editable text (not recommended when displaying math)
+- scrollable text when it doesn't fit the container
+  
+*MathLabel*
+- auto shrink/tighten text to make it fit, or truncate when it doesn't
+- fast
+
+All these listed features can be turned on or off. Only use `MathTextView` if you have a reason to, else stick to `MathLabel` for performance. Watch out that `numberOfLines` is 1 by default, you might want to set this to 0 for unlimited lines.
+
+
 ## Limitations
-You probably want to keep `iosMathTextView.isEditable` false. This package is meant for showing equations, not editing them. If you select text with an equation and copy/paste it you will see the LaTeX code in place of the equation.
+You probably want to keep `mathTextView.isEditable` false. This package is meant for showing equations, not editing them. If you select text with an equation and copy/paste it you will see the LaTeX code in place of the equation.
 
 ## Future
 I'll keep working on performance improvements, api updates, extra compatibility and new features. Let me know what you would like to see next.
