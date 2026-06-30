@@ -151,7 +151,9 @@ open class MathLabel: UILabel {
             pixelDensity: scale,
             mathFontName: mathFontName,
             mathFontScaleInline: mathFontScaleInline,
-            mathFontScaleDisplay: mathFontScaleDisplay
+            mathFontScaleDisplay: mathFontScaleDisplay,
+            fallbackFontSize: font.pointSize,
+            fallbackColor: textColor
         ) {
             ignoreAttributedTextDidSet = true
             self.attributedText = nil
