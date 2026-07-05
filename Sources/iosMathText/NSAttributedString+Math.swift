@@ -76,7 +76,7 @@ extension NSAttributedString {
             let mode: MTMathUILabelMode = isCentered ? .display : .text
             
             let attachment = MathTextAttachment()
-            if #available(iOS 15.0, *) {
+            if #available(iOS 15.0, tvOS 15.0, *) {
                 attachment.allowsTextAttachmentView = false
             }
             attachment.update(latex: latexStr, substring: substringStr, mode: mode, updateImage: false)
@@ -122,7 +122,7 @@ extension NSAttributedString {
             if let mathTextAttachment = value as? MathTextAttachment {
                 let color = attribute(.foregroundColor, at: range.location, effectiveRange: nil) as? UIColor ?? (fallbackColor ?? .black)
                 var fontScale = mathTextAttachment.mode == .display ? mathFontScaleDisplay : mathFontScaleInline
-                var fontSize = (attribute(.font, at: range.location, effectiveRange: nil) as? UIFont)?.pointSize ?? (fallbackFontSize ?? UIFont.smallSystemFontSize)
+                var fontSize = (attribute(.font, at: range.location, effectiveRange: nil) as? UIFont)?.pointSize ?? (fallbackFontSize ?? 12.0)
                 let mathFontSize = round(fontScale > 5 ? fontScale * scale : fontSize * fontScale * scale) / scale
                 if mathTextAttachment.update(font: mathFontName, fontSize: mathFontSize, color: color, scale: scale) {
                     updated = true
@@ -130,7 +130,7 @@ extension NSAttributedString {
                 //in case of Latex parsing error just show as regular text:
                 if mathTextAttachment.image == nil {
                     var attrs = attributes(at: range.location, effectiveRange: nil)
-                    var replacement = NSAttributedString(string: mathTextAttachment.substring, attributes: attrs)
+                    var replacement = NSAttributedString(string: mathTextAttachment.latexWithTags, attributes: attrs)
                     attributedString = NSMutableAttributedString(attributedString: self)
                     attributedString?.replaceCharacters(in: range, with: replacement)
                 }

@@ -14,7 +14,7 @@ class MathTextAttachment: NSTextAttachment {
     private static let appearanceChangeNotification = Notification.Name("_UIScreenDefaultTraitCollectionDidChangeNotification")
 
     private(set) var latex: String = ""
-    private(set) var substring: String = "" // latex + open/close tags
+    private(set) var latexWithTags: String = "" // latex + open/close tags
     private(set) var font: String = MTFontNameLatinModern
     private(set) var color: UIColor = .label
     private(set) var scale: CGFloat = 2
@@ -28,11 +28,15 @@ class MathTextAttachment: NSTextAttachment {
         var updateImage = image == nil
         
         if let substring {
-            self.substring = substring
+            self.latexWithTags = substring
         }        
         if let latex, self.latex != latex {
             self.latex = latex
             NotificationCenter.default.removeObserver(self, name: Self.appearanceChangeNotification, object: nil)
+            #if os(iOS)
+            NotificationCenter.default.removeObserver(self, name: UIPasteboard.changedNotification, object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(pasteBoardChanged), name: UIPasteboard.changedNotification, object: nil)
+            #endif
             if latex.contains("color") {
                 renderingMode = .alwaysOriginal
                 NotificationCenter.default.addObserver(self, selector: #selector(appearanceChanged), name: Self.appearanceChangeNotification, object: nil)
@@ -89,7 +93,7 @@ class MathTextAttachment: NSTextAttachment {
         label.latex = latex
 
         if label.error != nil {
-            print(label.error!)
+            print("iosMath error processing \"\(latex)\": \(label.error?.localizedDescription ?? "unknown")" )
             return nil
         }
         
@@ -118,15 +122,15 @@ class MathTextAttachment: NSTextAttachment {
         label.layer.render(in: UIGraphicsGetCurrentContext()!)
         let image = UIGraphicsGetImageFromCurrentImageContext() ?? nil
         let baselineOffset = floor((label.displayList?.position.y ?? 0)*scale)/scale
-        let nudge = 0.45/scale // fixes baseline sometimes being off a pixel
-        
+        // Nudge fixes baseline sometimes being off a pixel.
+        // Add some randomness for identification purposes when copying.
+        let nudge = CGFloat.random(in: 0.445..<0.455)/scale
         let result = image?.cgImage == nil ? nil : UIImage(
             cgImage: image!.cgImage!,
             scale: scale,
             orientation: .downMirrored)
         .withBaselineOffset(fromBottom: baselineOffset + nudge)
         .withRenderingMode(renderingMode)
-
         return result
     }
     
@@ -170,4 +174,22 @@ class MathTextAttachment: NSTextAttachment {
             height: image.size.height * scalingFactor
         )
     }
+
+    // When copying an equation image by long pressing it, have its LaTeX code string also added to the pasteboard.
+    #if os(iOS)
+    @objc func pasteBoardChanged() {
+        if UIPasteboard.general.string == nil, // prevents infinite looping
+           let pbImage = UIPasteboard.general.image,
+           image?.baselineOffsetFromBottom != nil,
+           pbImage.baselineOffsetFromBottom != nil,
+           pbImage.size == image!.size,
+           Float(pbImage.baselineOffsetFromBottom!) == Float(image!.baselineOffsetFromBottom!) // the offset is abused for identification
+        {
+            var items: [String: Any] = [:]
+            items["public.utf8-plain-text"] = latexWithTags
+            items[pbImage.cgImage?.utType as? String ?? "public.png"] = pbImage
+            UIPasteboard.general.items = [items]
+        }
+    }
+    #endif
 }

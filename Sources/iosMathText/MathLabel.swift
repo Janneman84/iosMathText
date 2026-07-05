@@ -51,9 +51,12 @@ open class MathLabel: UILabel {
     // Use tempAlignment to set the textAlignment back to its original alignment.
     var tempAlignment: NSTextAlignment? = .natural
     var ignoreTextAlignmentSet = false
-    
+
     open override var text: String! {
-        willSet {
+        get {
+            return super.text == nil ? nil : replaceAttachmentsWithAccessibilityHints()
+        }
+        set {
             updateScheduled = false
             if let tempAlignment {
                 ignoreTextAlignmentSet = true
@@ -61,8 +64,7 @@ open class MathLabel: UILabel {
                 ignoreTextAlignmentSet = false
                 self.tempAlignment = nil
             }
-        }
-        didSet {
+            super.text = newValue
             attributedText = attributedText
         }
     }
@@ -168,6 +170,24 @@ open class MathLabel: UILabel {
         guard !updateScheduled else { return }
         updateScheduled = true
         setNeedsLayout() //TODO necessary?
+    }
+
+    // Find text attachments and replace them with their respective accessibilityHint
+    func replaceAttachmentsWithAccessibilityHints() -> String {
+        
+        var textAttachments = [(range: NSRange, string: String)]()
+        let mutableAttributedSubstring = NSMutableAttributedString(attributedString: attributedText)
+        
+        mutableAttributedSubstring.enumerateAttribute(.attachment, in: NSRange(0..<mutableAttributedSubstring.length) , options: []) { (value, range, pointer) in
+            if let textAttachment = value as? NSTextAttachment {
+                textAttachments.append((range, textAttachment.accessibilityHint ?? ""))
+            }
+        }
+        
+        for attachment in textAttachments.reversed() {
+            mutableAttributedSubstring.replaceCharacters(in: attachment.range, with: attachment.string)
+        }
+        return mutableAttributedSubstring.string.replacingOccurrences(of: " ", with: "") // remove narrow no-break space used to fix a glitch
     }
 
 }
