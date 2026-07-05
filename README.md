@@ -14,7 +14,7 @@ This package is designed and tested to work together with other text parsers, li
 
 ### Editing LaTeX
 
-If you edit the text of `MathTextView` the underlying LaTeX codes will show which you can edit to your liking. As soon as finish editing the formatted equations will be shown, so you can instantly see if your edits were succesful.
+If you edit the text of `MathTextView` the underlying LaTeX codes will show which you can edit to your liking. As soon as finish editing the formatted equations will be shown, so you can instantly see if your edits were successful.
 
 <img width="302" height="656" alt="Simulator Screenshot - iPhone 17 - 2026-07-05 at 10 31 42" src="https://github.com/user-attachments/assets/7a070c6f-d9be-43f4-8d75-f55dbef42ef4" />
 <img width="302" height="656" alt="Simulator Screenshot - iPhone 17 - 2026-07-05 at 10 31 35" src="https://github.com/user-attachments/assets/cf8d3636-ae17-48fd-aaa2-bde6e70cb400" />
