@@ -12,6 +12,16 @@ This package is designed and tested to work together with other text parsers, li
 <img width="403" height="874" alt="Simulator Screenshot - iPhone 17 - 2026-06-13 at 20 45 56" src="https://github.com/user-attachments/assets/0b2a7a11-bdc8-4607-9324-331420a97f23" />
 <img width="403" height="874" alt="Simulator Screenshot - iPhone 17 - 2026-06-13 at 22 12 01" src="https://github.com/user-attachments/assets/66d80dd3-c500-4de7-afd1-64b17137d25a" />
 
+### Editing LaTeX
+
+If you edit the text of `MathTextView` the underlying LaTeX codes will show which you can edit to your liking. As soon as finish editing the formatted equations will be shown, so you can instantly see if your edits were succesful.
+
+<img width="302" height="656" alt="Simulator Screenshot - iPhone 17 - 2026-07-05 at 10 31 42" src="https://github.com/user-attachments/assets/7a070c6f-d9be-43f4-8d75-f55dbef42ef4" />
+<img width="302" height="656" alt="Simulator Screenshot - iPhone 17 - 2026-07-05 at 10 31 35" src="https://github.com/user-attachments/assets/cf8d3636-ae17-48fd-aaa2-bde6e70cb400" />
+
+### Copy/paste
+If you select text with equations and copy/paste it in a text editor you will see the LaTeX codes in place of the equations. If you long press an equation and select 'Copy image' it will copy both the image and the LaTeX code to the pasteboard.
+
 ## Installation
 
 First install this package through SPM using the Github url `https://github.com/Janneman84/iosMathText`. Make sure the library is linked to the target.
@@ -68,7 +78,7 @@ In UIKit text is typically displayed using either UILabel or UITextView, which a
 *MathTextView*
 - selectable text
 - auto url detection
-- editable text (not recommended when displaying math)
+- editable text
 - scrollable text when it doesn't fit the container
   
 *MathLabel*
@@ -76,10 +86,6 @@ In UIKit text is typically displayed using either UILabel or UITextView, which a
 - fast
 
 All these listed features can be turned on or off. Only use `MathTextView` if you have a reason to, else stick to `MathLabel` for performance. Watch out that `numberOfLines` is 1 by default, you might want to set this to 0 for unlimited lines.
-
-
-## Limitations
-You probably want to keep `mathTextView.isEditable` false. This package is meant for showing equations, not editing them. If you select text with an equation and copy/paste it you will see the LaTeX code in place of the equation.
 
 ## Future
 I'll keep working on performance improvements, api updates, extra compatibility and new features. Let me know what you would like to see next.
