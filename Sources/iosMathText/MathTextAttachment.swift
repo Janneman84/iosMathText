@@ -88,7 +88,7 @@ class MathTextAttachment: NSTextAttachment {
         label.mode = mode
         label.contentScaleFactor = scale
         label.fontSize = fontSize
-        label.font = MTFontManager.fontManager.font(withName: font, size: label.fontSize)
+        label.font = MTFontManager.fontManager.font(withName: font, size: label.fontSize) ?? label.font
         // label.backgroundColor = .systemTeal.withAlphaComponent(0.75)
         label.latex = latex
 
