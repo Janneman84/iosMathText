@@ -88,7 +88,9 @@ class MathTextAttachment: NSTextAttachment {
         label.mode = mode
         label.contentScaleFactor = scale
         label.fontSize = fontSize
-        label.font = MTFontManager.fontManager.font(withName: font, size: label.fontSize) ?? label.font
+        let mtFont = MTFontManager.fontManager.font(withName: font, size: label.fontSize)
+        assert(mtFont != nil, "Invalid mathFont.name provided: \'\(font)\'. Import 'iosMath' to access consts that start with \'MTFontName\'.")
+        label.font = mtFont ?? label.font
         // label.backgroundColor = .systemTeal.withAlphaComponent(0.75)
         label.latex = latex
 

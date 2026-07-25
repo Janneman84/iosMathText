@@ -19,7 +19,7 @@ open class iosMathTextView: MathTextView {}
 ///
 open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
 
-    override init(frame: CGRect, textContainer: NSTextContainer?) {
+    public override init(frame: CGRect, textContainer: NSTextContainer?) {
         super.init(frame: frame, textContainer: textContainer)
         initialize()
     }
@@ -50,12 +50,24 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
     ///   - name: Add `import iosMath` and you should be able to access consts that start with `MTFontName`.  Defaults to MTFontNameLatinModern.
     ///   - inlineScale: Sets the size factor of the math font relative to the text. Use a value over 5 for absolute size. Defaults to 1.1.
     ///   - displayScale: Same as inlineScale but for centered isolated math. Defaults to 1.2.
-    open func setMathFont(name: String, inlineScale: CGFloat, displayScale: CGFloat) {
+    @objc open func setMathFont(name: String, inlineScale: CGFloat, displayScale: CGFloat) {
         mathFontName = name
         mathFontScaleInline = max(0, inlineScale)
         mathFontScaleDisplay = max(0, displayScale)
         scheduleUpdateMath()
     }
+
+    /// Sets the math font properties with a tuple, alternative to setMathFont().
+    /// - Parameters:
+    ///   - name: Add `import iosMath` and you should be able to access consts that start with `MTFontName`.  Defaults to MTFontNameLatinModern.
+    ///   - inlineScale: Sets the size factor of the math font relative to the text. Use a value over 5 for absolute size. Defaults to 1.1.
+    ///   - displayScale: Same as inlineScale but for centered isolated math. Defaults to 1.2.
+    open var mathFont: (name: String, inlineScale: CGFloat, displayScale: CGFloat) = (MTFontNameLatinModern, 1.1, 1.2) { didSet {
+        mathFontName = mathFont.name
+        mathFontScaleInline = max(0, mathFont.inlineScale)
+        mathFontScaleDisplay = max(0, mathFont.displayScale)
+        scheduleUpdateMath()
+    }}
 
     var ignoreAttributedTextDidSet = false
 
@@ -91,7 +103,7 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
             updateScheduled = false
             let scale = traitCollection.displayScale
             
-            let unparsedMath = attributedText?.unparsingMath()
+            let unparsedMath = attributedText?.unparseMath()
             if !isFirstResponder, let latexedAttributedText = unparsedMath?.parseMath(
                 pixelDensity: scale,
                 mathFontName: mathFontName,

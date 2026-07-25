@@ -6,6 +6,16 @@
 //
 import Foundation
 
+@objc extension NSString {
+    public func preparseMath() -> NSString {
+        return (self as String).actuallyPreparseMath() as NSString
+    }
+    
+    public func unparseMath() -> NSString {
+        return (self as String).actuallyUnparseMath() as NSString
+    }
+}
+
 extension String {
     // Pre-compile the regex once to save CPU cycles.
     // Thread-safe and compatible with iOS 13+.
@@ -16,7 +26,7 @@ extension String {
 
     /// Searches for LaTeX math strings ($$, $, \[, \() and replaces them in-place with: ✽[Base64]❄︎
     /// Fully optimized and backward-compatible with iOS 13.
-    public func preparseMath() -> String {
+    fileprivate func actuallyPreparseMath() -> String {
         guard let regex = String.mathRegex else { return self }
         
         let range = NSRange(self.startIndex..<self.endIndex, in: self)
@@ -72,7 +82,7 @@ extension String {
 
     /// Searches for ✽[Base64]❄︎ blocks and replaces them in-place with the decoded LaTeX string.
     /// Fully optimized and backward-compatible with iOS 13.
-    public func unparseMath() -> String {
+    fileprivate func actuallyUnparseMath() -> String {
         guard let regex = String.unparseRegex else { return self }
         
         let range = NSRange(self.startIndex..<self.endIndex, in: self)
@@ -182,7 +192,7 @@ extension NSMutableAttributedString {
 }
 
 // MARK: - Extension for Non-Mutating Strings (NSAttributedString)
-extension NSAttributedString {
+@objc extension NSAttributedString {
     
     /// Returns a new attributed string with LaTeX math strings replaced by ✽[Base64]❄︎
     public func preparseMath() -> NSAttributedString {
@@ -192,7 +202,7 @@ extension NSAttributedString {
     }
     
     /// Returns a new attributed string with ✽[Base64]❄︎ blocks decoded back to original LaTeX.
-    public func unparsingMath() -> NSAttributedString {
+    public func unparseMath() -> NSAttributedString {
         let mutableCopy = NSMutableAttributedString(attributedString: self)
         mutableCopy.xunparseMath()
         return NSAttributedString(attributedString: mutableCopy)
