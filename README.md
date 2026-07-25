@@ -37,7 +37,8 @@ import iosMath // For accessing font name consts
 ```swift
 /*
   Instance an MathTextView and/or MathLabel and add it to your UI.
-  These are subclasses of UITextView and UILabel and add one extra method: setMathFont().
+  These are subclasses of UITextView and UILabel and add one extra
+  method: setMathFont() and one property: mathFont. Both do the same.
 */
 
 let mathText = "To solve the equation \\(5x^2 = 100\\),\n\n\\[5x^2 = 100\\]\n\n\\[\\frac{5x^2}{5} = \\frac{100}{5}\\]\n\n\\[x^2 = 20\\]\n\nNow, to solve for \\(x\\), you take the square root of both sides. Remember, when you take the square root of both sides of an equation, you must consider both the positive and negative root solutions:\n\n\\[x = \\pm\\sqrt{20}\\]\n\nSimplifying the square root of 20, knowing that \\(20 = 4 \\times 5\\) and \\(\\sqrt{4}\\) is 2, we get:\n\n\\[x = \\pm 2\\sqrt{5}\\]"
@@ -47,7 +48,9 @@ mathTextView.setMathFont(name: MTFontNameLatinModern, inlineScale: 1.1, displayS
 mathTextView.text = mathText
 
 defer { mathLabel.layoutIfNeeded() } // optional
-mathLabel.setMathFont(name: MTFontNameNewComputerModern, inlineScale: 15, displayScale: 20)
+mathLabel.mathFont.name = MTFontNameNewComputerModern
+mathLabel.mathFont.inlineScale = 15
+mathLabel.mathFont.displayScale = 20
 mathLabel.text = mathText
 ```
 `layoutIfNeeded()` is not strictly necessary but if you encounter issues you could try it.
