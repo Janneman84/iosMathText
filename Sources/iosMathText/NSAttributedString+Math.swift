@@ -19,6 +19,7 @@ extension NSAttributedString {
      - Parameter ignore$: Set to true to not look for LaTeX between $ .. $ and $$ ... $$.
      - Returns: Attributed String
      */
+    @MainActor
     func parseMath(
         ignore$: Bool
     ) -> NSAttributedString {
@@ -101,6 +102,7 @@ extension NSAttributedString {
         return tempMutableString
     }
     
+    @MainActor
     func updateMath(
         pixelDensity scale: CGFloat,
         mathFontName: String = MTFontNameLatinModern,

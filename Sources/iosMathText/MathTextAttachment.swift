@@ -10,6 +10,7 @@ import iosMath
 
 class MathTextAttachment: NSTextAttachment {
     
+    @MainActor
     private static let mtMathUILabel = MTMathUILabel()
     private static let appearanceChangeNotification = Notification.Name("_UIScreenDefaultTraitCollectionDidChangeNotification")
 
@@ -22,6 +23,7 @@ class MathTextAttachment: NSTextAttachment {
     private(set) var mode: MTMathUILabelMode = .text
     private var renderingMode: UIImage.RenderingMode = .alwaysTemplate
 
+    @MainActor
     func update(latex: String? = nil, substring: String? = nil, font: String? = nil, fontSize: CGFloat? = nil, color: UIColor? = nil, scale: CGFloat? = nil, mode: MTMathUILabelMode? = nil, updateImage: Bool = true) -> Bool {
 
         let dontUpdateImage = !updateImage
@@ -75,10 +77,12 @@ class MathTextAttachment: NSTextAttachment {
         return updateImage
     }
     
+    @MainActor
     @objc func appearanceChanged() {
         image = createMathLabelImage() ?? image
     }
     
+    @MainActor
     private func createMathLabelImage() -> UIImage? {
 
         let label = renderingMode == .alwaysTemplate ? Self.mtMathUILabel : MTMathUILabel()
