@@ -5,12 +5,9 @@
 //  Created by Jan de Vries on 13/06/2026.
 //
 
-import UIKit
 import iosMath
 
 extension NSAttributedString {
-    
-    private static let mtMathUILabel = MTMathUILabel()
 
     /**
      Checks for LaTeX math tags in the text and replaces them with LaTeX styled inline images of the containing equations. The equation font size will be relative to its surrounding text.
@@ -19,23 +16,22 @@ extension NSAttributedString {
      - Parameter mathFontName: Add `import iosMath` and you should be able to access consts that start with `MTFontName`.  Defaults to MTFontNameLatinModern.
      - Parameter mathFontScaleInline: Sets the size factor of the math font relative to the text. Use a value over 5 for absolute size. Defaults to 1.1.
      - Parameter mathFontScaleDisplay: Same as inlineScale but for centered isolated math. Defaults to 1.2.
+     - Parameter ignore$: Set to true to not look for LaTeX between $ .. $ and $$ ... $$.
      - Returns: Attributed String
      */
     func parseMath(
-        pixelDensity: CGFloat,
-        mathFontName: String = MTFontNameLatinModern,
-        mathFontScaleInline: CGFloat = 1.1,
-        mathFontScaleDisplay: CGFloat = 1.2
+        ignore$: Bool
     ) -> NSAttributedString {
        
         let totalLength = self.length
         guard totalLength > 0,
-              let matches = NSMutableAttributedString.parseRegex?.matches(in: self.string, options: [], range: NSRange(location: 0, length: totalLength)),
+              let matches =
+                (ignore$ ? NSMutableAttributedString.parseLatexRegexIgnore$ : NSMutableAttributedString.parseLatexRegex)?
+                .matches(in: self.string, options: [], range: NSRange(location: 0, length: totalLength)),
               !matches.isEmpty else {
             return self
         }
 
-        let scale: CGFloat = max(ProcessInfo.processInfo.isMacCatalystApp ? 2.0 : 1.0, pixelDensity)
         let tempMutableString = NSMutableAttributedString(attributedString: self)
         
         // Cache the Swift String and its UTF16 view for fast access outside the loop
@@ -76,7 +72,7 @@ extension NSAttributedString {
             let mode: MTMathUILabelMode = isCentered ? .display : .text
             
             let attachment = MathTextAttachment()
-            if #available(iOS 15.0, tvOS 15.0, *) {
+            if #available(iOS 15.0, tvOS 15.0, macOS 12.0, *) {
                 attachment.allowsTextAttachmentView = false
             }
             attachment.update(latex: latexStr, substring: substringStr, mode: mode, updateImage: false)

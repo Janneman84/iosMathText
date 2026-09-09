@@ -7,27 +7,23 @@
 import Foundation
 
 @objc extension NSString {
-    public func preparseMath() -> NSString {
-        return (self as String).actuallyPreparseMath() as NSString
+    /// Searches for LaTeX math strings ($$, $, \[, \() and replaces them in-place with: ✽[Base64]❄︎.
+    /// This protects it from being affected by e.g. Markdown parsers.
+    /// - Parameters:
+    ///   - ignore$: Set to true to not search for math strings between $ ... $ and $$ ... $$.
+    public func preparseMath(ignore$: Bool = false) -> NSString {
+        return (self as String).preparseMath(ignore$: ignore$) as NSString
     }
     
+    /// Returns string with ✽[Base64]❄︎ blocks decoded back to original LaTeX, including its tags.
     public func unparseMath() -> NSString {
-        return (self as String).actuallyUnparseMath() as NSString
+        return (self as String).unparseMath() as NSString
     }
 }
 
 extension String {
-    // Pre-compile the regex once to save CPU cycles.
-    // Thread-safe and compatible with iOS 13+.
-    private static let mathRegex: NSRegularExpression? = {
-        let pattern = "((?<!\\\\)\\$\\$.*?(?<!\\\\)\\$\\$)|((?<!\\\\)\\$.*?(?<!\\\\)\\$)|(\\\\\\[.*?\\\\\\])|(\\\\\\(.*?\\\\\\))"
-        return try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
-    }()
-
-    /// Searches for LaTeX math strings ($$, $, \[, \() and replaces them in-place with: ✽[Base64]❄︎
-    /// Fully optimized and backward-compatible with iOS 13.
-    fileprivate func actuallyPreparseMath() -> String {
-        guard let regex = String.mathRegex else { return self }
+    public func preparseMath(ignore$: Bool = false) -> String {
+        guard let regex = ignore$ ? NSMutableAttributedString.parseLatexRegexIgnore$ : NSMutableAttributedString.parseLatexRegex else { return self }
         
         let range = NSRange(self.startIndex..<self.endIndex, in: self)
         let matches = regex.matches(in: self, options: [], range: range)
@@ -73,17 +69,8 @@ extension String {
         return result
     }
 
-    // Pre-compile the regex once to save CPU cycles.
-    // Matches everything between ✽ and ❄︎ safely.
-    private static let unparseRegex: NSRegularExpression? = {
-        let pattern = "\\✽(.*?)\\❄︎"
-        return try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
-    }()
-
-    /// Searches for ✽[Base64]❄︎ blocks and replaces them in-place with the decoded LaTeX string.
-    /// Fully optimized and backward-compatible with iOS 13.
-    fileprivate func actuallyUnparseMath() -> String {
-        guard let regex = String.unparseRegex else { return self }
+    public func unparseMath() -> String {
+        guard let regex = NSMutableAttributedString.unparseLatexRegex else { return self }
         
         let range = NSRange(self.startIndex..<self.endIndex, in: self)
         let matches = regex.matches(in: self, options: [], range: range)
@@ -131,20 +118,25 @@ extension String {
 extension NSMutableAttributedString {
     
     // Pre-compiled regex patterns for performance and iOS 13 compatibility
-    static let parseRegex: NSRegularExpression? = {
+    static let parseLatexRegex: NSRegularExpression? = {
         let pattern = "((?<!\\\\)\\$\\$.*?(?<!\\\\)\\$\\$)|((?<!\\\\)\\$.*?(?<!\\\\)\\$)|(\\\\\\[.*?\\\\\\])|(\\\\\\(.*?\\\\\\))"
         return try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
     }()
     
-    static let unparseRegex: NSRegularExpression? = {
+    static let parseLatexRegexIgnore$: NSRegularExpression? = {
+        let pattern = "(\\\\\\[.*?\\\\\\])|(\\\\\\(.*?\\\\\\))"
+        return try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
+    }()
+    
+    static let unparseLatexRegex: NSRegularExpression? = {
         let pattern = "\\✽(.*?)\\❄︎"
         return try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
     }()
     
     /// Searches for LaTeX math strings ($$, $, \[, \() and replaces them in-place with: ✽[Base64]❄︎
     /// Preserves all other text attributes.
-    func xparseMath() {
-        guard let regex = NSMutableAttributedString.parseRegex else { return }
+    func xparseMath(ignore$: Bool) {
+        guard let regex = ignore$ ? NSMutableAttributedString.parseLatexRegexIgnore$ : NSMutableAttributedString.parseLatexRegex else { return }
         
         let fullRange = NSRange(location: 0, length: self.length)
         let matches = regex.matches(in: self.string, options: [], range: fullRange)
@@ -169,7 +161,7 @@ extension NSMutableAttributedString {
     /// Searches for ✽[Base64]❄︎ blocks and replaces them in-place with the decoded LaTeX string.
     /// Preserves all other text attributes.
     func xunparseMath() {
-        guard let regex = NSMutableAttributedString.unparseRegex else { return }
+        guard let regex = NSMutableAttributedString.unparseLatexRegex else { return }
         
         let fullRange = NSRange(location: 0, length: self.length)
         let matches = regex.matches(in: self.string, options: [], range: fullRange)
@@ -195,13 +187,16 @@ extension NSMutableAttributedString {
 @objc extension NSAttributedString {
     
     /// Returns a new attributed string with LaTeX math strings replaced by ✽[Base64]❄︎
-    public func preparseMath() -> NSAttributedString {
+    /// This protects it from being affected by e.g. Markdown parsers.
+    /// - Parameters:
+    ///   - ignore$: Set to true to not search for math strings between $ ... $ and $$ ... $$.
+    public func preparseMath(ignore$: Bool = false) -> NSAttributedString {
         let mutableCopy = NSMutableAttributedString(attributedString: self)
-        mutableCopy.xparseMath()
+        mutableCopy.xparseMath(ignore$: ignore$)
         return NSAttributedString(attributedString: mutableCopy)
     }
     
-    /// Returns a new attributed string with ✽[Base64]❄︎ blocks decoded back to original LaTeX.
+    /// Returns a new attributed string with ✽[Base64]❄︎ blocks decoded back to original LaTeX, including its tags.
     public func unparseMath() -> NSAttributedString {
         let mutableCopy = NSMutableAttributedString(attributedString: self)
         mutableCopy.xunparseMath()

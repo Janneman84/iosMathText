@@ -12,9 +12,9 @@ import iosMath
 open class iosMathLabel: MathLabel {}
 
 /// Label that scans for LaTeX tags in the text and replaces them with LaTeX styled inline images of the containing equations.
-/// Set math font with `setMathFont()` and text font/size/color/alignment **first**, then just set `text` or `attributedText` like normal.
+/// Set math font with `mathFont` or `setMathFont()`, then set either `text` or `attributedText` like normal.
 ///
-/// If you are using parsers for e.g. Markdown or HTML you should first preparse the text for math with the `preparseMath()` string extension.
+/// If you are using parsers for e.g. Markdown or HTML you should first preparse the text for math with the `preparseMath()` (attributed) string extension.
 /// This prevents other parsers from messing with the LaTeX code. Once finished parsing set the text or attributedText to this view.
 ///
 open class MathLabel: UILabel {
@@ -27,11 +27,30 @@ open class MathLabel: UILabel {
     public required init?(coder: NSCoder) {
         super.init(coder: coder)
         NotificationCenter.default.addObserver(self, selector: #selector(scheduleUpdateMath), name: UIContentSizeCategory.didChangeNotification, object: nil)
-    }    
+    }
+    
+    /// Instance MathLabel with the math font properties.
+    /// - Parameters:
+    ///   - mathFontName: Add `import iosMath` and you should be able to access consts that start with `MTFontName`.  Defaults to MTFontNameLatinModern.
+    ///   - inlineScale: Sets the size factor of the math font relative to the text. Use a value over 5 for absolute size. Defaults to 1.1.
+    ///   - displayScale: Same as inlineScale but for centered isolated math. Defaults to 1.2.
+    ///   - ignore$: Set to true to not look for LaTeX between $ .. $ and $$ ... $$.
+    @objc public convenience init(mathFontName: String, inlineScale: CGFloat, displayScale: CGFloat, ignore$: Bool = false) {
+        self.init(frame: .zero)
+        self.ignore$ = ignore$
+        self.mathFont = (name: mathFontName, inlineScale: inlineScale, displayScale: displayScale)
+    }
  
     var mathFontName: String = MTFontNameLatinModern
     var mathFontScaleInline: CGFloat = 1.1
     var mathFontScaleDisplay: CGFloat = 1.2
+    
+    /// Set true to not look for LaTeX between $ ... $ and $$ .... $$.
+    @objc public var ignore$: Bool = false { didSet {
+        if oldValue != ignore$, attributedText != nil {
+            attributedText = replaceAttachmentsWithAccessibilityHints()
+        }
+    }}
     
     /// Sets the math font properties.
     /// - Parameters:
@@ -66,7 +85,7 @@ open class MathLabel: UILabel {
 
     open override var text: String! {
         get {
-            return super.text == nil ? nil : replaceAttachmentsWithAccessibilityHints()
+            return super.text == nil ? nil : replaceAttachmentsWithAccessibilityHints().string
         }
         set {
             updateScheduled = false
@@ -90,13 +109,9 @@ open class MathLabel: UILabel {
         didSet {
             guard !ignoreAttributedTextDidSet else { return }
             updateScheduled = false
-            let scale = traitCollection.displayScale
 
             if let latexedAttributedText = attributedText?.unparseMath().parseMath(
-                pixelDensity: scale,
-                mathFontName: mathFontName,
-                mathFontScaleInline: mathFontScaleInline,
-                mathFontScaleDisplay: mathFontScaleDisplay
+                ignore$: ignore$
             ) {
                 self.ignoreAttributedTextDidSet = true
                 self.attributedText = latexedAttributedText
@@ -185,7 +200,7 @@ open class MathLabel: UILabel {
     }
 
     // Find text attachments and replace them with their respective accessibilityHint
-    func replaceAttachmentsWithAccessibilityHints() -> String {
+    func replaceAttachmentsWithAccessibilityHints() -> NSMutableAttributedString {
         
         var textAttachments = [(range: NSRange, string: String)]()
         let mutableAttributedSubstring = NSMutableAttributedString(attributedString: attributedText)
@@ -199,7 +214,11 @@ open class MathLabel: UILabel {
         for attachment in textAttachments.reversed() {
             mutableAttributedSubstring.replaceCharacters(in: attachment.range, with: attachment.string)
         }
-        return mutableAttributedSubstring.string.replacingOccurrences(of: " ", with: "") // remove narrow no-break space used to fix a glitch
+
+        let range = NSRange(location: 0, length: mutableAttributedSubstring.length)
+        mutableAttributedSubstring.mutableString.replaceOccurrences(of: " ", with: "", options: [], range: range) // remove narrow no-break space used to fix a glitch
+
+        return mutableAttributedSubstring
     }
 
 }
