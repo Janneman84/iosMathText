@@ -64,7 +64,7 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
         isEditing = isEditable && isFirstResponder
         #endif
         if oldValue != ignore$, attributedText != nil, !isEditing {
-            attributedText = replaceAttachmentsWithAccessibilityHints(updateSelection: false)
+            attributedText = replaceAttachmentsWithLatex(updateSelection: false)
         }
     }}
     
@@ -101,7 +101,7 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
 
     open override var text: String! {
         get {
-            return super.text == nil ? nil : replaceAttachmentsWithAccessibilityHints(updateSelection: false).string
+            return super.text == nil ? nil : replaceAttachmentsWithLatex(updateSelection: false).string
         }
         set {
             updateScheduled = false
@@ -220,7 +220,7 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
         // selectedRange isn't available yet, so wait
         DispatchQueue.main.async() { [self] in
             ignoreAttributedTextDidSet = true
-            replaceAttachmentsWithAccessibilityHints(updateSelection: true)
+            _ = replaceAttachmentsWithLatex(updateSelection: true)
             ignoreAttributedTextDidSet = false
         }
     }
@@ -230,8 +230,8 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
         scheduleUpdateMath()
     }
     
-    /// Replaces all text attachments with their accessibility hint string, preserving surrounding formatting and keeping the cursor position intact.
-    func replaceAttachmentsWithAccessibilityHints(updateSelection: Bool) -> NSMutableAttributedString {
+    /// Replaces all text attachments with their LaTeX string, preserving surrounding formatting and keeping the cursor position intact.
+    func replaceAttachmentsWithLatex(updateSelection: Bool) -> NSMutableAttributedString {
         let mutableAttributedText = NSMutableAttributedString(attributedString: self.attributedText)
         let fullRange = NSRange(location: 0, length: mutableAttributedText.length)
         
@@ -244,8 +244,8 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
         
         // Step A: Scan for NSTextAttachments
         mutableAttributedText.enumerateAttributes(in: fullRange, options: []) { (attributes, range, stop) in
-            if let attachment = attributes[.attachment] as? NSTextAttachment {
-                let replacementText = attachment.accessibilityHint ?? ""
+            if let attachment = attributes[.attachment] as? MathTextAttachment {
+                let replacementText = attachment.latexWithTags
                 
                 var cleanAttributes = attributes
                 cleanAttributes.removeValue(forKey: .attachment)
@@ -352,7 +352,7 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
 
     open override func copy(_ sender: Any?) {
         super.copy(sender)
-        // Find text attachments and replace them with their respective accessibilityHint,
+        // Find text attachments and replace them with their respective LaTeX string,
         // then include the selected images and add it all to the pasteboard.
         
         var items = [[String: Any]]()
@@ -361,7 +361,7 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
         
         mutableAttributedSubstring.enumerateAttribute(.attachment, in: NSRange(0..<mutableAttributedSubstring.length) , options: []) { (value, range, pointer) in
             if let textAttachment = value as? MathTextAttachment {
-                textAttachments.append((range, textAttachment.accessibilityHint ?? ""))
+                textAttachments.append((range, textAttachment.latexWithTags))
                 if let image = textAttachment.image {
                     items.append(["public.png" : image])
                 }

@@ -48,7 +48,7 @@ open class MathLabel: UILabel {
     /// Set true to not look for LaTeX between $ ... $ and $$ .... $$.
     @objc public var ignore$: Bool = false { didSet {
         if oldValue != ignore$, attributedText != nil {
-            attributedText = replaceAttachmentsWithAccessibilityHints()
+            attributedText = replaceAttachmentsWithLatex()
         }
     }}
     
@@ -85,7 +85,7 @@ open class MathLabel: UILabel {
 
     open override var text: String! {
         get {
-            return super.text == nil ? nil : replaceAttachmentsWithAccessibilityHints().string
+            return super.text == nil ? nil : replaceAttachmentsWithLatex().string
         }
         set {
             updateScheduled = false
@@ -199,15 +199,15 @@ open class MathLabel: UILabel {
         setNeedsLayout() //TODO necessary?
     }
 
-    // Find text attachments and replace them with their respective accessibilityHint
-    func replaceAttachmentsWithAccessibilityHints() -> NSMutableAttributedString {
+    // Find text attachments and replace them with their LaTeX strings
+    func replaceAttachmentsWithLatex() -> NSMutableAttributedString {
         
         var textAttachments = [(range: NSRange, string: String)]()
         let mutableAttributedSubstring = NSMutableAttributedString(attributedString: attributedText)
         
         mutableAttributedSubstring.enumerateAttribute(.attachment, in: NSRange(0..<mutableAttributedSubstring.length) , options: []) { (value, range, pointer) in
-            if let textAttachment = value as? NSTextAttachment {
-                textAttachments.append((range, textAttachment.accessibilityHint ?? ""))
+            if let textAttachment = value as? MathTextAttachment {
+                textAttachments.append((range, textAttachment.latexWithTags))
             }
         }
         

@@ -67,7 +67,7 @@ extension NSAttributedString {
             guard matchedSubstring.count >= (inset * 2) else { continue }
             let latexSubstring = matchedSubstring.dropFirst(inset).dropLast(inset)
             
-            let substringStr = String(matchedSubstring)
+            let substringStr = String(matchedSubstring) // LaTeX + tags
             let latexStr = String(latexSubstring)
             let mode: MTMathUILabelMode = isCentered ? .display : .text
             
@@ -75,9 +75,8 @@ extension NSAttributedString {
             if #available(iOS 15.0, tvOS 15.0, macOS 12.0, *) {
                 attachment.allowsTextAttachmentView = false
             }
-            attachment.update(latex: latexStr, substring: substringStr, mode: mode, updateImage: false)
-            attachment.accessibilityHint = substringStr
-            
+            _ = attachment.update(latex: latexStr, substring: substringStr, mode: mode, updateImage: false)
+
             var attrs = self.attributes(at: range.location, effectiveRange: nil)
             
             if isCentered {
@@ -117,16 +116,16 @@ extension NSAttributedString {
         enumerateAttribute(.attachment, in: NSRange(location:0, length:length) , options: []) { (value, range, pointer) in
             if let mathTextAttachment = value as? MathTextAttachment {
                 let color = attribute(.foregroundColor, at: range.location, effectiveRange: nil) as? UIColor ?? (fallbackColor ?? .black)
-                var fontScale = mathTextAttachment.mode == .display ? mathFontScaleDisplay : mathFontScaleInline
-                var fontSize = (attribute(.font, at: range.location, effectiveRange: nil) as? UIFont)?.pointSize ?? (fallbackFontSize ?? 12.0)
+                let fontScale = mathTextAttachment.mode == .display ? mathFontScaleDisplay : mathFontScaleInline
+                let fontSize = (attribute(.font, at: range.location, effectiveRange: nil) as? UIFont)?.pointSize ?? (fallbackFontSize ?? 12.0)
                 let mathFontSize = round(fontScale > 5 ? fontScale * scale : fontSize * fontScale * scale) / scale
                 if mathTextAttachment.update(font: mathFontName, fontSize: mathFontSize, color: color, scale: scale) {
                     updated = true
                 }
                 //in case of Latex parsing error just show as regular text:
                 if mathTextAttachment.image == nil {
-                    var attrs = attributes(at: range.location, effectiveRange: nil)
-                    var replacement = NSAttributedString(string: mathTextAttachment.latexWithTags, attributes: attrs)
+                    let attrs = attributes(at: range.location, effectiveRange: nil)
+                    let replacement = NSAttributedString(string: mathTextAttachment.latexWithTags, attributes: attrs)
                     attributedString = NSMutableAttributedString(attributedString: self)
                     attributedString?.replaceCharacters(in: range, with: replacement)
                 }
@@ -147,7 +146,7 @@ extension NSAttributedString {
                     centeredParagraphStyle.alignment = .center
                     attrs[.paragraphStyle] = centeredParagraphStyle
                     if mutable == nil {
-                        mutable = self.mutableCopy() as! NSMutableAttributedString
+                        mutable = self.mutableCopy() as? NSMutableAttributedString
                     }
                     mutable!.setAttributes(attrs, range: range)
                 }

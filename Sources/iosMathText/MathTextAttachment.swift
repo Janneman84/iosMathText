@@ -14,7 +14,7 @@ class MathTextAttachment: NSTextAttachment {
     private static let appearanceChangeNotification = Notification.Name("_UIScreenDefaultTraitCollectionDidChangeNotification")
 
     private(set) var latex: String = ""
-    private(set) var latexWithTags: String = "" // latex + open/close tags
+    private(set) var latexWithTags: String = "" // LaTeX + open/close tags
     private(set) var font: String = MTFontNameLatinModern
     private(set) var color: UIColor = .label
     private(set) var scale: CGFloat = 2
