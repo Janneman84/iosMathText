@@ -15,19 +15,30 @@ open class iosMathLabel: MathLabel {}
 /// Set math font with `mathFont` or `setMathFont()`, then set either `text` or `attributedText` like normal.
 ///
 /// If you are using parsers for e.g. Markdown or HTML you should first preparse the text for math with the `preparseMath()` (attributed) string extension.
-/// This prevents other parsers from messing with the LaTeX code. Once finished parsing set the text or attributedText to this view.
+/// This prevents other parsers from messing with the LaTeX code. Once finished set the resulting attributedText to this view.
 ///
 open class MathLabel: UILabel {
     
+    // MARK: - Initializer overrides
+    
     public override init(frame: CGRect) {
         super.init(frame: frame)
-        NotificationCenter.default.addObserver(self, selector: #selector(scheduleUpdateMath), name: UIContentSizeCategory.didChangeNotification, object: nil)
+        initialize()
     }
     
     public required init?(coder: NSCoder) {
         super.init(coder: coder)
-        NotificationCenter.default.addObserver(self, selector: #selector(scheduleUpdateMath), name: UIContentSizeCategory.didChangeNotification, object: nil)
+        initialize()
     }
+    
+    func initialize() {
+        NotificationCenter.default.addObserver(self, selector: #selector(scheduleUpdateMath), name: UIContentSizeCategory.didChangeNotification, object: nil)
+        desiredTextAlignment = textAlignment
+        attributedText = attributedText
+    }
+    
+    
+    // MARK: - Public Interface
     
     /// Instance MathLabel with the math font properties.
     /// - Parameters:
@@ -40,17 +51,6 @@ open class MathLabel: UILabel {
         self.ignore$ = ignore$
         self.mathFont = (name: mathFontName, inlineScale: inlineScale, displayScale: displayScale)
     }
- 
-    var mathFontName: String = MTFontNameLatinModern
-    var mathFontScaleInline: CGFloat = 1.1
-    var mathFontScaleDisplay: CGFloat = 1.2
-    
-    /// Set true to not look for LaTeX between $ ... $ and $$ .... $$.
-    @objc public var ignore$: Bool = false { didSet {
-        if oldValue != ignore$, attributedText != nil {
-            attributedText = replaceAttachmentsWithLatex()
-        }
-    }}
     
     /// Sets the math font properties.
     /// - Parameters:
@@ -76,66 +76,70 @@ open class MathLabel: UILabel {
         scheduleUpdateMath()
     }}
     
-    var ignoreAttributedTextDidSet = false
+    /// Set true to not look for LaTeX between $ ... $ and $$ .... $$.
+    @objc public var ignore$: Bool = false { didSet {
+        if oldValue != ignore$, attributedText != nil {
+            attributedText = replaceAttachmentsWithLatex()
+        }
+    }}
+    
+    
+    // MARK: - Custom Private Properties
 
-    // When text only contains a centered equation textAlignment gets changed to .centered.
-    // Use tempAlignment to set the textAlignment back to its original alignment.
-    var tempAlignment: NSTextAlignment? = .natural
-    var ignoreTextAlignmentSet = false
-
+    // When text only contains a centered equation textAlignment gets automatically changed to .centered.
+    // Use desiredAlignment to set the textAlignment back to its original alignment when changing the text.
+    var desiredTextAlignment: NSTextAlignment!
+    var layingoutSubviews = false
+    var updateScheduled = false
+    
+    var mathFontName: String = MTFontNameLatinModern
+    var mathFontScaleInline: CGFloat = 1.1
+    var mathFontScaleDisplay: CGFloat = 1.2
+    
+    
+    // MARK: - Property overrides
+    
     open override var text: String! {
         get {
             return super.text == nil ? nil : replaceAttachmentsWithLatex().string
         }
         set {
             updateScheduled = false
-            if let tempAlignment {
-                ignoreTextAlignmentSet = true
-                textAlignment = tempAlignment
-                ignoreTextAlignmentSet = false
-                self.tempAlignment = nil
-            }
+            super.textAlignment = desiredTextAlignment
             super.text = newValue
             attributedText = attributedText
         }
     }
     
     open override var attributedText: NSAttributedString! {
-        willSet {
-            if ignoreAttributedTextDidSet && tempAlignment == nil {
-                tempAlignment = textAlignment
-            }
+        get {
+            return super.attributedText
         }
-        didSet {
-            guard !ignoreAttributedTextDidSet else { return }
+        set {
             updateScheduled = false
 
-            if let latexedAttributedText = attributedText?.unparseMath().parseMath(
+            let latexedAttributedText = newValue.unparseMath().parseMath(
                 ignore$: ignore$
-            ) {
-                self.ignoreAttributedTextDidSet = true
-                self.attributedText = latexedAttributedText
-                scheduleUpdateMath()
-                self.ignoreAttributedTextDidSet = false
-            }
+            )
+            super.textAlignment = desiredTextAlignment
+            super.attributedText = latexedAttributedText
+            scheduleUpdateMath()
         }
     }
-    
+
     open override var textAlignment: NSTextAlignment {
-        willSet {
-            if !ignoreTextAlignmentSet && tempAlignment != nil && !ignoreAttributedTextDidSet {
-                tempAlignment = newValue
+        get {
+            return super.textAlignment
+        }
+        set {
+            desiredTextAlignment = newValue
+            super.textAlignment = newValue
+            if let centeredDisplayMath = attributedText.centerDisplayMath() {
+                super.attributedText = centeredDisplayMath
             }
         }
-        didSet {
-            if !ignoreTextAlignmentSet, let centeredDisplayMath = attributedText.centerDisplayMath() {
-                ignoreAttributedTextDidSet = true
-                attributedText = centeredDisplayMath
-                ignoreAttributedTextDidSet = false
-            }
-         }
     }
-    
+
     open override var font: UIFont! {
         didSet {
             if font?.pointSize != oldValue?.pointSize {
@@ -152,6 +156,9 @@ open class MathLabel: UILabel {
         }
     }
 
+    
+    // MARK: - Method overrides
+    
     open override func setNeedsLayout() {
         if !layingoutSubviews {
             super.setNeedsLayout()
@@ -163,7 +170,6 @@ open class MathLabel: UILabel {
         super.layoutIfNeeded()
     }
 
-    var layingoutSubviews = false
     open override func layoutSubviews() {
         layingoutSubviews = true
         updateMath()
@@ -171,10 +177,18 @@ open class MathLabel: UILabel {
         layingoutSubviews = false
     }
     
+    
+    // MARK: - Custom methods
+    
+    @objc func scheduleUpdateMath() {
+        guard !updateScheduled else { return }
+        updateScheduled = true
+        setNeedsLayout() //TODO necessary?
+    }
+    
     func updateMath() {
         guard updateScheduled else { return }
         updateScheduled = false
-        guard !ignoreAttributedTextDidSet else { return }
         let scale = traitCollection.displayScale
         if let attributedString = attributedText.updateMath(
             pixelDensity: scale,
@@ -184,22 +198,14 @@ open class MathLabel: UILabel {
             fallbackFontSize: font.pointSize,
             fallbackColor: textColor
         ) {
-            ignoreAttributedTextDidSet = true
-            self.attributedText = nil
-            self.attributedText = attributedString
-            ignoreAttributedTextDidSet = false
-            layoutIfNeeded()
+            super.attributedText = nil // when text doesn't change its attachments won't be updated, to force this set to nil first
+            super.textAlignment = desiredTextAlignment // just in case
+            super.attributedText = attributedString
+//            layoutIfNeeded() //TODO necessary?
         }
     }
-    
-    var updateScheduled = false
-    @objc func scheduleUpdateMath() {
-        guard !updateScheduled else { return }
-        updateScheduled = true
-        setNeedsLayout() //TODO necessary?
-    }
 
-    // Find text attachments and replace them with their LaTeX strings
+    /// Revert to original string by finding text attachments and replace them with their LaTeX strings
     func replaceAttachmentsWithLatex() -> NSMutableAttributedString {
         
         var textAttachments = [(range: NSRange, string: String)]()
