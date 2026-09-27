@@ -5,46 +5,96 @@
 //  Created by Jan de Vries on 13/06/2026.
 //
 
-import UIKit
 import iosMath
+
+#if canImport(UIKit)
+import UIKit
+/// Bridges to `UIColor` on iOS, tvOS, and watchOS.
+internal typealias MTColor = UIColor
+internal typealias MTFont = UIFont
+internal typealias MTImage = UIImage
+#elseif canImport(AppKit)
+import AppKit
+/// Bridges to `NSColor` on macOS.
+internal typealias MTColor = NSColor
+internal typealias MTFont = NSFont
+internal typealias MTImage = NSImage
+
+/// A thread-safe observer that converts system appearance updates into standard notifications.
+@MainActor
+public final class MTAppearanceObserver {
+
+    public static let shared = MTAppearanceObserver()
+
+    private var observation: NSKeyValueObservation?
+    
+    private init() {
+        // Safely hook into the application's appearance lifecycle on the MainActor
+        observation = NSApp.observe(\.effectiveAppearance, options: [.new]) { _, _ in
+            NotificationCenter.default.post(
+                name: MathTextAttachment.appearanceChangeNotification,
+                object: nil
+            )
+        }
+    }
+    
+    /// Force-initializes the singleton instance. Call this once during app startup if needed.
+    public func start() {}
+}
+
+#else
+// Fallback for environments without UI frameworks (like Linux)
+#error("Unsupported platform: requires UIKit or AppKit")
+#endif
+
 
 class MathTextAttachment: NSTextAttachment {
     
+#if canImport(UIKit)
     @MainActor
     private static let mtMathUILabel = MTMathUILabel()
-    private static let appearanceChangeNotification = Notification.Name("_UIScreenDefaultTraitCollectionDidChangeNotification")
+    private var renderingMode: UIImage.RenderingMode = .alwaysTemplate
+    private(set) var color: MTColor = .label
+#elseif canImport(AppKit)
+    private(set) var color: MTColor = .labelColor
+#endif
+    fileprivate static let appearanceChangeNotification = Notification.Name("_UIScreenDefaultTraitCollectionDidChangeNotification")
 
     private(set) var latex: String = ""
     private(set) var latexWithTags: String = "" // LaTeX + open/close tags
     private(set) var font: String = MTFontNameLatinModern
-    private(set) var color: UIColor = .label
+
     private(set) var scale: CGFloat = 2
     private(set) var fontSize: CGFloat = 14
     private(set) var mode: MTMathUILabelMode = .text
-    private var renderingMode: UIImage.RenderingMode = .alwaysTemplate
+
 
     @MainActor
-    func update(latex: String? = nil, substring: String? = nil, font: String? = nil, fontSize: CGFloat? = nil, color: UIColor? = nil, scale: CGFloat? = nil, mode: MTMathUILabelMode? = nil, updateImage: Bool = true) -> Bool {
+    func update(latex: String? = nil, substring: String? = nil, font: String? = nil, fontSize: CGFloat? = nil, color: MTColor? = nil, scale: CGFloat? = nil, mode: MTMathUILabelMode? = nil, updateImage: Bool = true) -> Bool {
 
         let dontUpdateImage = !updateImage
         var updateImage = image == nil
         
         if let substring {
             self.latexWithTags = substring
-        }        
+        }
         if let latex, self.latex != latex {
             self.latex = latex
-            NotificationCenter.default.removeObserver(self, name: Self.appearanceChangeNotification, object: nil)
+            NotificationCenter.default.removeObserver(self, name: Self.appearanceChangeNotification, object: nil) //TODO macos?
             #if os(iOS)
             NotificationCenter.default.removeObserver(self, name: UIPasteboard.changedNotification, object: nil)
             NotificationCenter.default.addObserver(self, selector: #selector(pasteBoardChanged), name: UIPasteboard.changedNotification, object: nil)
             #endif
+            #if canImport(UIKit)
             if latex.contains("color") {
                 renderingMode = .alwaysOriginal
                 NotificationCenter.default.addObserver(self, selector: #selector(appearanceChanged), name: Self.appearanceChangeNotification, object: nil)
             } else {
                 renderingMode = .alwaysTemplate
             }
+            #elseif canImport(AppKit)
+                NotificationCenter.default.addObserver(self, selector: #selector(appearanceChanged), name: Self.appearanceChangeNotification, object: nil)
+            #endif
             updateImage = true
         }
         if let font, self.font != font {
@@ -65,9 +115,13 @@ class MathTextAttachment: NSTextAttachment {
         }
         if let color, self.color != color {
             self.color = color
+            #if canImport(UIKit)
             if renderingMode == .alwaysOriginal {
                 updateImage = true
             }
+            #elseif canImport(AppKit)
+            updateImage = true
+            #endif
         }
         
         if updateImage && !dontUpdateImage {
@@ -83,14 +137,21 @@ class MathTextAttachment: NSTextAttachment {
     }
     
     @MainActor
-    private func createMathLabelImage() -> UIImage? {
+    private func createMathLabelImage() -> MTImage? {
 
+        #if canImport(UIKit)
         let label = renderingMode == .alwaysTemplate ? Self.mtMathUILabel : MTMathUILabel()
         if renderingMode == .alwaysOriginal {
             label.textColor = color
         }
-        label.mode = mode
         label.contentScaleFactor = scale
+        #elseif canImport(AppKit)
+        let label = MTMathUILabel()
+        label.textColor = color
+        MTAppearanceObserver.shared.start()
+        #endif
+        
+        label.mode = mode
         label.fontSize = fontSize
         let mtFont = MTFontManager.fontManager.font(withName: font, size: label.fontSize)
         assert(mtFont != nil, "Invalid mathFont.name provided: \'\(font)\'. Import 'iosMath' to access consts that start with \'MTFontName\'.")
@@ -122,6 +183,8 @@ class MathTextAttachment: NSTextAttachment {
             )
         )
 
+        #if canImport(UIKit)
+        
         // render label to image
         UIGraphicsBeginImageContextWithOptions(label.bounds.size, false, scale)
         defer { UIGraphicsEndImageContext() }
@@ -138,10 +201,27 @@ class MathTextAttachment: NSTextAttachment {
         .withBaselineOffset(fromBottom: baselineOffset + nudge)
         .withRenderingMode(renderingMode)
         return result
+        
+        #elseif canImport(AppKit)
+        
+        label.layoutSubtreeIfNeeded()
+        let size = label.bounds.size
+        let baselineOffset = floor((label.displayList?.position.y ?? 0)*scale)/scale
+        self.bounds = .init(x: 0, y: 0-baselineOffset, width: size.width, height: size.height)
+        guard let bitmapRep = label.bitmapImageRepForCachingDisplay(in: label.bounds) else {
+            return nil
+        }
+        bitmapRep.size = label.bounds.size
+        label.cacheDisplay(in: label.bounds, to: bitmapRep)
+        let image = NSImage(size: label.bounds.size)
+        image.addRepresentation(bitmapRep)
+        return image
+        
+        #endif
     }
     
 
-    @available(iOS 15.0, tvOS 15.0, *) //fallback for older iOS below
+    @available(iOS 15.0, tvOS 15.0, macOS 12.0, *) //fallback for older iOS below
     override func attachmentBounds(for attributes: [NSAttributedString.Key : Any], location: any NSTextLocation, textContainer: NSTextContainer?, proposedLineFragment: CGRect, position: CGPoint) -> CGRect {
         return image == nil ? .zero : adjustBounds(
             super.attachmentBounds(

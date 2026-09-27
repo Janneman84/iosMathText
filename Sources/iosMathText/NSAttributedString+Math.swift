@@ -111,15 +111,15 @@ extension NSAttributedString {
         // When fontsize/color can't be found in the attributed string UITextView will default to size 12.0 and black,
         // while UILabel defaults to its font.pointSize/textColor. The latter will have to be provided through the fallback args.
         fallbackFontSize: CGFloat? = nil,
-        fallbackColor: UIColor? = nil
+        fallbackColor: MTColor? = nil
     ) -> NSAttributedString? {
         var updated = false
         var attributedString: NSMutableAttributedString?
         enumerateAttribute(.attachment, in: NSRange(location:0, length:length) , options: []) { (value, range, pointer) in
             if let mathTextAttachment = value as? MathTextAttachment {
-                let color = attribute(.foregroundColor, at: range.location, effectiveRange: nil) as? UIColor ?? (fallbackColor ?? .black)
+                let color = attribute(.foregroundColor, at: range.location, effectiveRange: nil) as? MTColor ?? (fallbackColor ?? .black)
                 let fontScale = mathTextAttachment.mode == .display ? mathFontScaleDisplay : mathFontScaleInline
-                let fontSize = (attribute(.font, at: range.location, effectiveRange: nil) as? UIFont)?.pointSize ?? (fallbackFontSize ?? 12.0)
+                let fontSize = (attribute(.font, at: range.location, effectiveRange: nil) as? MTFont)?.pointSize ?? (fallbackFontSize ?? 12.0)
                 let mathFontSize = round(fontScale > 5 ? fontScale * scale : fontSize * fontScale * scale) / scale
                 if mathTextAttachment.update(font: mathFontName, fontSize: mathFontSize, color: color, scale: scale) {
                     updated = true
