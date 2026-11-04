@@ -1,5 +1,5 @@
 # iosMathText
-Show text with beautifully rendered math equations in your iOS app!
+Show text with beautifully rendered math/equations in your iOS ánd macOS app!
 
 This package leverages the power of <a href="https://github.com/kostub/iosMath">iosMath</a> to create `MathTextView` and `MathLabel`. These views process text with LaTeX math code and turns it into something like this: 
 
@@ -37,8 +37,9 @@ import iosMath // For accessing font name consts
 ```swift
 /*
   Instance an MathTextView and/or MathLabel and add it to your UI.
-  These are subclasses of UITextView and UILabel and add one extra
-  method: setMathFont() and one property: mathFont. Both do the same.
+  These are subclasses of UITextView/UILabel (iOS/iPadOS/tvOS) and NSTextView/NSTextField (macOS).
+  They add one extra method: setMathFont() and one property: mathFont. Both do the same.
+  There is also one new property: ignore$. When true it will not look for LaTeX between dollar signs.
 */
 
 let mathText = "To solve the equation \\(5x^2 = 100\\),\n\n\\[5x^2 = 100\\]\n\n\\[\\frac{5x^2}{5} = \\frac{100}{5}\\]\n\n\\[x^2 = 20\\]\n\nNow, to solve for \\(x\\), you take the square root of both sides. Remember, when you take the square root of both sides of an equation, you must consider both the positive and negative root solutions:\n\n\\[x = \\pm\\sqrt{20}\\]\n\nSimplifying the square root of 20, knowing that \\(20 = 4 \\times 5\\) and \\(\\sqrt{4}\\) is 2, we get:\n\n\\[x = \\pm 2\\sqrt{5}\\]"
@@ -52,6 +53,7 @@ mathLabel.mathFont.name = MTFontNameNewComputerModern
 mathLabel.mathFont.inlineScale = 15
 mathLabel.mathFont.displayScale = 20
 mathLabel.text = mathText
+mathLabel.text.ignore$ = true
 ```
 `layoutIfNeeded()` is not strictly necessary but if you encounter issues you could try it.
 
@@ -76,11 +78,13 @@ So first preparse, then parse, then set to `MathTextView`/`MathTextLabel`.
 SwifUI doesn't support `NSTextAttachment`s (yet) so you'll need to use `UIViewRepresentable` to implement either `MathLabel` or `MathTextView` in your app. You can ask an LLM how to do this.
 
 ### MathLabel vs. MathTextView
-In UIKit text is typically displayed using either UILabel or UITextView, which are both subclassed in this package. Which to use?
+In UIKit text is typically displayed using either UILabel or UITextView. For AppKit (macOS) this is NSTextView and NSTextField. This package subclasses these classes.
+
+Which to use?
 
 *MathTextView*
-- selectable text
 - auto url detection
+- selectable/copyable text
 - editable text
 - scrollable text when it doesn't fit the container
   
@@ -88,7 +92,7 @@ In UIKit text is typically displayed using either UILabel or UITextView, which a
 - auto shrink/tighten text to make it fit, or truncate when it doesn't
 - fast
 
-All these listed features can be turned on or off. Only use `MathTextView` if you have a reason to, else stick to `MathLabel` for performance. Watch out that `numberOfLines` is 1 by default, you might want to set this to 0 for unlimited lines.
+All these listed features can be turned on or off. Note that tvOS can't select/edit text. Only use `MathTextView` if you have a reason to, else stick to `MathLabel` for performance. Watch out that `numberOfLines` is 1 by default, you might want to set this to 0 for unlimited lines.
 
 ## Future
 I'll keep working on performance improvements, api updates, extra compatibility and new features. Let me know what you would like to see next.
