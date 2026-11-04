@@ -156,4 +156,117 @@ extension NSAttributedString {
         }
         return mutable
     }
+
+    /// Revert to original string by finding text attachments and replace them with their LaTeX strings
+    func replaceAttachmentsWithLatex() -> NSMutableAttributedString {
+        
+        var textAttachments = [(range: NSRange, string: String)]()
+        let mutableAttributedSubstring = NSMutableAttributedString(attributedString: self)
+        
+        mutableAttributedSubstring.enumerateAttribute(.attachment, in: NSRange(0..<mutableAttributedSubstring.length) , options: []) { (value, range, pointer) in
+            if let textAttachment = value as? MathTextAttachment {
+                textAttachments.append((range, textAttachment.latexWithTags))
+            }
+        }
+        
+        for attachment in textAttachments.reversed() {
+            mutableAttributedSubstring.replaceCharacters(in: attachment.range, with: attachment.string)
+        }
+
+        let range = NSRange(location: 0, length: mutableAttributedSubstring.length)
+        mutableAttributedSubstring.mutableString.replaceOccurrences(of: " ", with: "", options: [], range: range) // remove narrow no-break space used to fix a glitch
+
+        return mutableAttributedSubstring
+    }
+
+    /// Replaces all text alignment attributes with value `from` and changes it to `to`.
+    func alterAlignment(from: NSTextAlignment, to: NSTextAlignment) -> NSAttributedString {
+            let mutableString = NSMutableAttributedString(attributedString: self)
+            let nsString = mutableString.string as NSString
+            let fullRange = NSRange(location: 0, length: mutableString.length)
+            
+            guard fullRange.length > 0 else { return self }
+            
+            // Walk through string's paragraphs (separated by \n)
+            var location = 0
+            while location < nsString.length {
+                let paragraphRange = nsString.paragraphRange(for: NSRange(location: location, length: 0))
+                
+                // Check paragraphStyle of the first character of the specific paragraph
+                let currentStyle = mutableString.attribute(.paragraphStyle, at: paragraphRange.location, effectiveRange: nil) as? NSParagraphStyle
+                
+                if let existingStyle = currentStyle {
+                    // Paragraph has an attribute: alter it only if it matches 'from'
+                    if existingStyle.alignment == from {
+                        let mutableStyle = existingStyle.mutableCopy() as! NSMutableParagraphStyle
+                        mutableStyle.alignment = to
+                        mutableString.addAttribute(.paragraphStyle, value: mutableStyle, range: paragraphRange)
+                    }
+                } else {
+                    // Paragraph has NO attribute, make new style for just this paragraph
+                    let newStyle = NSMutableParagraphStyle()
+                    newStyle.alignment = to
+                    mutableString.addAttribute(.paragraphStyle, value: newStyle, range: paragraphRange)
+                }
+                
+                // Go to next paragraph
+                location = NSMaxRange(paragraphRange)
+            }
+            
+            return NSAttributedString(attributedString: mutableString)
+        }
+    
+    /// Replaces all foreground color attributes with value `from` and changes it to `to`.
+    func alterTextColor(from: MTColor, to: MTColor) -> NSAttributedString {
+        let mutableString = NSMutableAttributedString(attributedString: self)
+        let fullRange = NSRange(location: 0, length: self.length)
+        
+        mutableString.enumerateAttribute(.foregroundColor, in: fullRange, options: []) { value, range, _ in
+            if let currentColor = value as? MTColor, currentColor == from {
+                mutableString.addAttribute(.foregroundColor, value: to, range: range)
+            }
+        }
+        
+        return NSAttributedString(attributedString: mutableString)
+    }
+    
+    /// Replaces all font attributes with value `from` and changes it to `to`.
+    func alterFont(from: MTFont, to: MTFont) -> NSAttributedString {
+        let mutableString = NSMutableAttributedString(attributedString: self)
+        let fullRange = NSRange(location: 0, length: self.length)
+        
+        // Calculate how much bigger or smaller the font will be
+        let scale = to.pointSize / from.pointSize
+        
+        let originalFontKey = NSAttributedString.Key("NSOriginalFont")
+        
+        mutableString.enumerateAttribute(.font, in: fullRange, options: []) { value, range, _ in
+            if let currentFont = value as? MTFont, currentFont == from {
+                // Remove NSOriginalFont attribute to prevent line height issues.
+                mutableString.removeAttribute(originalFontKey, range: range)
+                
+                // Apply new font
+                mutableString.addAttribute(.font, value: to, range: range)
+                
+                // Search for paragraph styles within this specific range and scale accordingly
+                mutableString.enumerateAttribute(.paragraphStyle, in: range, options: []) { pValue, pRange, _ in
+                    if let paragraphStyle = pValue as? NSParagraphStyle,
+                       let mutableStyle = paragraphStyle.mutableCopy() as? NSMutableParagraphStyle {
+                        
+                        // Multiply absolute point values with the scale
+                        mutableStyle.lineSpacing *= scale
+                        mutableStyle.minimumLineHeight *= scale
+                        mutableStyle.maximumLineHeight *= scale
+                        mutableStyle.paragraphSpacing *= scale
+                        mutableStyle.paragraphSpacingBefore *= scale
+                        
+                        // Overwrite the old style
+                        mutableString.addAttribute(.paragraphStyle, value: mutableStyle, range: pRange)
+                    }
+                }
+            }
+        }
+        return NSAttributedString(attributedString: mutableString)
+    }
+    
 }

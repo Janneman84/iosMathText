@@ -5,6 +5,9 @@
 //  Created by Jan de Vries on 18/06/2026.
 //
 
+import Foundation
+
+#if canImport(UIKit)
 import UIKit
 import iosMath
 
@@ -31,10 +34,15 @@ open class MathLabel: UILabel {
         initialize()
     }
     
+    var initialized = false
+    
     func initialize() {
+        guard !initialized else { return }
+        initialized = true        
+        
         NotificationCenter.default.addObserver(self, selector: #selector(scheduleUpdateMath), name: UIContentSizeCategory.didChangeNotification, object: nil)
         desiredTextAlignment = textAlignment
-        attributedText = attributedText
+        attributedText = attributedText // for storyboard
     }
     
     
@@ -63,7 +71,7 @@ open class MathLabel: UILabel {
         mathFontScaleDisplay = max(0, displayScale)
         scheduleUpdateMath()
     }
-
+    
     /// Sets the math font properties with a tuple, alternative to setMathFont().
     /// - Parameters:
     ///   - name: Add `import iosMath` and you should be able to access consts that start with `MTFontName`.  Defaults to MTFontNameLatinModern.
@@ -79,13 +87,13 @@ open class MathLabel: UILabel {
     /// Set true to not look for LaTeX between $ ... $ and $$ .... $$.
     @objc public var ignore$: Bool = false { didSet {
         if oldValue != ignore$, attributedText != nil {
-            attributedText = replaceAttachmentsWithLatex()
+            attributedText = attributedText.replaceAttachmentsWithLatex()
         }
     }}
     
     
     // MARK: - Custom Private Properties
-
+    
     // When text only contains a centered equation textAlignment gets automatically changed to .centered.
     // Use desiredAlignment to set the textAlignment back to its original alignment when changing the text.
     var desiredTextAlignment: NSTextAlignment!
@@ -101,7 +109,7 @@ open class MathLabel: UILabel {
     
     open override var text: String! {
         get {
-            return super.text == nil ? nil : replaceAttachmentsWithLatex().string
+            return attributedText?.replaceAttachmentsWithLatex().string
         }
         set {
             updateScheduled = false
@@ -117,8 +125,7 @@ open class MathLabel: UILabel {
         }
         set {
             updateScheduled = false
-
-            let latexedAttributedText = newValue.unparseMath().parseMath(
+            let latexedAttributedText = newValue?.unparseMath().parseMath(
                 ignore$: ignore$
             )
             super.textAlignment = desiredTextAlignment
@@ -126,7 +133,7 @@ open class MathLabel: UILabel {
             scheduleUpdateMath()
         }
     }
-
+    
     open override var textAlignment: NSTextAlignment {
         get {
             return super.textAlignment
@@ -134,12 +141,12 @@ open class MathLabel: UILabel {
         set {
             desiredTextAlignment = newValue
             super.textAlignment = newValue
-            if let centeredDisplayMath = attributedText.centerDisplayMath() {
+            if let centeredDisplayMath = attributedText?.centerDisplayMath() {
                 super.attributedText = centeredDisplayMath
             }
         }
     }
-
+    
     open override var font: UIFont! {
         didSet {
             if font?.pointSize != oldValue?.pointSize {
@@ -155,7 +162,7 @@ open class MathLabel: UILabel {
             }
         }
     }
-
+    
     
     // MARK: - Method overrides
     
@@ -165,11 +172,12 @@ open class MathLabel: UILabel {
         }
     }
     
+    // This makes sure after calling layoutSubtreeIfNeeded() the frame gets updated instantly/correctly.
     open override func layoutIfNeeded() {
         updateMath()
         super.layoutIfNeeded()
     }
-
+    
     open override func layoutSubviews() {
         layingoutSubviews = true
         updateMath()
@@ -183,14 +191,14 @@ open class MathLabel: UILabel {
     @objc func scheduleUpdateMath() {
         guard !updateScheduled else { return }
         updateScheduled = true
-        setNeedsLayout() //TODO necessary?
+        setNeedsLayout()
     }
     
     func updateMath() {
         guard updateScheduled else { return }
         updateScheduled = false
         let scale = traitCollection.displayScale
-        if let attributedString = attributedText.updateMath(
+        if let attributedString = attributedText?.updateMath(
             pixelDensity: scale,
             mathFontName: mathFontName,
             mathFontScaleInline: mathFontScaleInline,
@@ -201,30 +209,8 @@ open class MathLabel: UILabel {
             super.attributedText = nil // when text doesn't change its attachments won't be updated, to force this set to nil first
             super.textAlignment = desiredTextAlignment // just in case
             super.attributedText = attributedString
-//            layoutIfNeeded() //TODO necessary?
+            //super.layoutIfNeeded() //unnecessary for now
         }
     }
-
-    /// Revert to original string by finding text attachments and replace them with their LaTeX strings
-    func replaceAttachmentsWithLatex() -> NSMutableAttributedString {
-        
-        var textAttachments = [(range: NSRange, string: String)]()
-        let mutableAttributedSubstring = NSMutableAttributedString(attributedString: attributedText)
-        
-        mutableAttributedSubstring.enumerateAttribute(.attachment, in: NSRange(0..<mutableAttributedSubstring.length) , options: []) { (value, range, pointer) in
-            if let textAttachment = value as? MathTextAttachment {
-                textAttachments.append((range, textAttachment.latexWithTags))
-            }
-        }
-        
-        for attachment in textAttachments.reversed() {
-            mutableAttributedSubstring.replaceCharacters(in: attachment.range, with: attachment.string)
-        }
-
-        let range = NSRange(location: 0, length: mutableAttributedSubstring.length)
-        mutableAttributedSubstring.mutableString.replaceOccurrences(of: " ", with: "", options: [], range: range) // remove narrow no-break space used to fix a glitch
-
-        return mutableAttributedSubstring
-    }
-
 }
+#endif

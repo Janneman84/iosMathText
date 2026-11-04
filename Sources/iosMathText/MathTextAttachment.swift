@@ -9,39 +9,14 @@ import iosMath
 
 #if canImport(UIKit)
 import UIKit
-/// Bridges to `UIColor` on iOS, tvOS, and watchOS.
 internal typealias MTColor = UIColor
 internal typealias MTFont = UIFont
 internal typealias MTImage = UIImage
 #elseif canImport(AppKit)
 import AppKit
-/// Bridges to `NSColor` on macOS.
 internal typealias MTColor = NSColor
 internal typealias MTFont = NSFont
 internal typealias MTImage = NSImage
-
-/// A thread-safe observer that converts system appearance updates into standard notifications.
-@MainActor
-public final class MTAppearanceObserver {
-
-    public static let shared = MTAppearanceObserver()
-
-    private var observation: NSKeyValueObservation?
-    
-    private init() {
-        // Safely hook into the application's appearance lifecycle on the MainActor
-        observation = NSApp.observe(\.effectiveAppearance, options: [.new]) { _, _ in
-            NotificationCenter.default.post(
-                name: MathTextAttachment.appearanceChangeNotification,
-                object: nil
-            )
-        }
-    }
-    
-    /// Force-initializes the singleton instance. Call this once during app startup if needed.
-    public func start() {}
-}
-
 #else
 // Fallback for environments without UI frameworks (like Linux)
 #error("Unsupported platform: requires UIKit or AppKit")
@@ -67,8 +42,7 @@ class MathTextAttachment: NSTextAttachment {
     private(set) var scale: CGFloat = 2
     private(set) var fontSize: CGFloat = 14
     private(set) var mode: MTMathUILabelMode = .text
-
-
+    
     @MainActor
     func update(latex: String? = nil, substring: String? = nil, font: String? = nil, fontSize: CGFloat? = nil, color: MTColor? = nil, scale: CGFloat? = nil, mode: MTMathUILabelMode? = nil, updateImage: Bool = true) -> Bool {
 
@@ -80,7 +54,7 @@ class MathTextAttachment: NSTextAttachment {
         }
         if let latex, self.latex != latex {
             self.latex = latex
-            NotificationCenter.default.removeObserver(self, name: Self.appearanceChangeNotification, object: nil) //TODO macos?
+            NotificationCenter.default.removeObserver(self, name: Self.appearanceChangeNotification, object: nil)
             #if os(iOS)
             NotificationCenter.default.removeObserver(self, name: UIPasteboard.changedNotification, object: nil)
             NotificationCenter.default.addObserver(self, selector: #selector(pasteBoardChanged), name: UIPasteboard.changedNotification, object: nil)
@@ -130,6 +104,44 @@ class MathTextAttachment: NSTextAttachment {
         
         return updateImage
     }
+
+    #if canImport(AppKit)
+    private var internalImage: MTImage?
+    
+    override var image: MTImage? {
+        get {
+            internalImage
+        }
+        set {
+            if internalImage != newValue {
+                internalImage = newValue
+                super.image = newValue
+            }
+        }
+    }
+    
+    /// On Mac, NSTextAtachment images may look blurry because they're not aligned to the pixel grid. This can be fixed by using a custom NSTextAttachmentCell.
+    /// However when an equation image is too wide to fit it should be scaled down, and the custom cell prevents that.
+    /// When the image is scaled down it's not pixel perfect anymore anyway so just don't use the custom cell then.
+    var imageIsScaledDown: Bool = false
+    {
+        didSet {
+            if !imageIsScaledDown {
+                super.image = nil
+                var cell: PixelPerfectAttachmentCell!
+                MainActor.assumeIsolated { [internalImage] in
+                    cell = PixelPerfectAttachmentCell(imageCell: internalImage)
+                }
+                attachmentCell = cell
+            } else {
+                super.image = internalImage
+                attachmentCell = nil
+            }
+        }
+    }
+    #else
+    var imageIsScaledDown: Bool = false // unused on iOS
+    #endif
     
     @MainActor
     @objc func appearanceChanged() {
@@ -164,7 +176,7 @@ class MathTextAttachment: NSTextAttachment {
             return nil
         }
         
-        let inset = round(label.fontSize * 0.025 * scale)/scale
+        let inset = max(1/scale, round(label.fontSize * 0.025 * scale)/scale)
         // you need at least a little bit of insets to prevent clipping
         label.contentInsets = .init(
             top:    inset,
@@ -208,10 +220,23 @@ class MathTextAttachment: NSTextAttachment {
         let size = label.bounds.size
         let baselineOffset = floor((label.displayList?.position.y ?? 0)*scale)/scale
         self.bounds = .init(x: 0, y: 0-baselineOffset, width: size.width, height: size.height)
+
         guard let bitmapRep = label.bitmapImageRepForCachingDisplay(in: label.bounds) else {
             return nil
         }
         bitmapRep.size = label.bounds.size
+        
+        // This code draws a background color, useful for testing
+        /*
+        NSGraphicsContext.saveGraphicsState()
+        if let context = NSGraphicsContext(bitmapImageRep: bitmapRep) {
+            NSGraphicsContext.current = context
+            NSColor.systemOrange.setFill()
+            label.bounds.fill()
+        }
+        NSGraphicsContext.restoreGraphicsState()
+         */
+        
         label.cacheDisplay(in: label.bounds, to: bitmapRep)
         let image = NSImage(size: label.bounds.size)
         image.addRepresentation(bitmapRep)
@@ -219,9 +244,8 @@ class MathTextAttachment: NSTextAttachment {
         
         #endif
     }
-    
 
-    @available(iOS 15.0, tvOS 15.0, macOS 12.0, *) //fallback for older iOS below
+    @available(iOS 15.0, tvOS 15.0, macOS 12.0, *) // fallback for older iOS below
     override func attachmentBounds(for attributes: [NSAttributedString.Key : Any], location: any NSTextLocation, textContainer: NSTextContainer?, proposedLineFragment: CGRect, position: CGPoint) -> CGRect {
         return image == nil ? .zero : adjustBounds(
             super.attachmentBounds(
@@ -249,9 +273,11 @@ class MathTextAttachment: NSTextAttachment {
     func adjustBounds(_ initialBounds: CGRect, lineFragment: CGRect) -> CGRect {
 
         guard let image = self.image, lineFragment.size.width <= image.size.width else {
+            imageIsScaledDown = false
             return initialBounds
         }
-        
+
+        imageIsScaledDown = true
         let scalingFactor = lineFragment.size.width / image.size.width
         return CGRect(
             x: initialBounds.origin.x,
@@ -279,3 +305,94 @@ class MathTextAttachment: NSTextAttachment {
     }
     #endif
 }
+
+
+#if canImport(AppKit)
+
+/// A thread-safe observer that converts system appearance updates into standard notifications.
+/// This is used to detect the app from changing to dark/light mode in macOS and updating the equation images accordingly.
+@MainActor
+public final class MTAppearanceObserver {
+
+    public static let shared = MTAppearanceObserver()
+
+    private var observation: NSKeyValueObservation?
+    
+    private init() {
+        // Safely hook into the application's appearance lifecycle on the MainActor
+        observation = NSApp.observe(\.effectiveAppearance, options: [.new]) { _, _ in
+            NotificationCenter.default.post(
+                name: MathTextAttachment.appearanceChangeNotification,
+                object: nil
+            )
+        }
+    }
+    
+    /// Force-initializes the singleton instance. Call this once during app startup if needed.
+    public func start() {}
+}
+
+
+/// When using no or regular NSTextAttachmentCell NSTextAttachments images can look a bit blurry.
+/// This happens because they're not snapped to the pixel grid. To fix this you can use this custom class.
+/// It overrides the draw() method, which lets you control the frame so you can round it to pixels.
+///
+/// To keep the baseline offset correction working, cellBaselineOffset() needed to be overridden too.
+/// This works a bit funny though, because it's not always called. When it does not get called the regular bounds work fine.
+/// However when it does get called you'll need to read these bounds and return it. But, the problem is whatever you
+/// return in cellBaselineOffset() gets effectively rounded down, so on retina this may cause the offset being off a pixel.
+///
+/// Also, if the height is not a rounded number this will also cause the offset being off. So there are two corrections to consider.
+///
+/// Important to know is that (unlike cellBaselineOffset()) the draw() method does not affect the spacing of the text lines.
+/// This means you want to keep the (baseline) corrections there as small as possible. So, if the correction is 1 let the
+/// cellBaselineOffset() take care of it, if it's 0.5 let the draw() method take care of it.
+///
+/// TODO if 3x scaling ever becomes a thing this will need to be tested
+///
+public class PixelPerfectAttachmentCell: NSTextAttachmentCell {
+    
+    // No fancy corrections needed as long as cellBaselineOffset() is not called.
+    var drawBaselineOffsetCorrection: CGFloat = 0
+    
+    // - Used for vertical adjustment.
+    // - Rounds down the returned values, so no pixel precision on retina
+    // - Does adjust text spacing properly, so apply baseline correction as much as possible here
+    public override func cellBaselineOffset() -> NSPoint {
+
+        let baselineOffset = attachment?.bounds.origin.y ?? 0
+       
+        // If baseline offset and/or attachment height is not a rounded number, a correction is needed. Both are combined here.
+        let correction = abs(baselineOffset.remainder(dividingBy: 1)) + abs(attachment?.bounds.size.height.remainder(dividingBy: 1) ?? 0)
+
+        MainActor.assumeIsolated {
+            // The two corrections combined may be 1, in that case the correction may be handled by this method instead of the draw() method.
+            drawBaselineOffsetCorrection = correction.remainder(dividingBy: 1)
+        }
+        return .init(x: 0, y: floor(baselineOffset) + floor(correction)) // Added manual floors so if the internal flooring behaviour changes in the future it won't break.
+    }
+    
+    // - Used for vertical and horizontal adjustment
+    // - Does not round down anything, so pixel precision available here
+    // - Does not adjust text spacing, so only apply as little correction as possible (a pixel at most)
+    public override func draw(withFrame cellFrame: NSRect, in controlView: NSView?) {
+        
+        guard let controlView else {
+            super.draw(withFrame: cellFrame, in: nil)
+            return
+        }
+        // 1. Convert to physical pixels
+        var backingFrame = controlView.convertToBacking(cellFrame)
+
+        // 2. Snap to physical pixels
+        backingFrame.origin.x = backingFrame.origin.x.rounded()
+        backingFrame.origin.y = backingFrame.origin.y.rounded()
+
+        // 3. Convert back to points
+        let alignedFrame = controlView.convertFromBacking(backingFrame)
+
+        super.draw(withFrame: alignedFrame.offsetBy(dx: 0, dy: 0-drawBaselineOffsetCorrection), in: controlView)
+    }
+}
+
+#endif

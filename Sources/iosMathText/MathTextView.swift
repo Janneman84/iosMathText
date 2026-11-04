@@ -5,6 +5,7 @@
 //  Created by Jan de Vries on 13/06/2026.
 //
 
+#if canImport(UIKit)
 import UIKit
 import iosMath
 
@@ -19,6 +20,8 @@ open class iosMathTextView: MathTextView {}
 ///
 open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
 
+    // MARK: - Initializer overrides
+    
     public override init(frame: CGRect, textContainer: NSTextContainer?) {
         super.init(frame: frame, textContainer: textContainer)
         initialize()
@@ -29,7 +32,13 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
         initialize()
     }
     
+    
+    var initialized = false
+    
     func initialize() {
+        guard !initialized else { return }
+        initialized = true
+        
         NotificationCenter.default.addObserver(self, selector: #selector(scheduleUpdateMath), name: UIContentSizeCategory.didChangeNotification, object: nil)
         #if os(iOS)
         NotificationCenter.default.addObserver(self, selector: #selector(didBeginEditing), name: UITextView.textDidBeginEditingNotification, object: self)
@@ -38,8 +47,12 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
         tapGesture.cancelsTouchesInView = false
         tapGesture.delegate = self
         addGestureRecognizer(tapGesture)
+        desiredTextAlignment = textAlignment
         #endif
     }
+    
+    
+    // MARK: - Public Interface
     
     /// Instance MathTextView with the math font properties.
     /// - Parameters:
@@ -53,21 +66,6 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
         self.mathFont = (name: mathFontName, inlineScale: inlineScale, displayScale: displayScale)
     }
 
-    var mathFontName: String = MTFontNameLatinModern
-    var mathFontScaleInline: CGFloat = 1.1
-    var mathFontScaleDisplay: CGFloat = 1.2
-    
-    /// Set true to not look for LaTeX between $ ... $ and $$ .... $$.
-    @objc public var ignore$: Bool = false { didSet {
-        var isEditing = false
-        #if os(iOS)
-        isEditing = isEditable && isFirstResponder
-        #endif
-        if oldValue != ignore$, attributedText != nil, !isEditing {
-            attributedText = replaceAttachmentsWithLatex(updateSelection: false)
-        }
-    }}
-    
     /// Sets the math font properties.
     /// - Parameters:
     ///   - name: Add `import iosMath` and you should be able to access consts that start with `MTFontName`.  Defaults to MTFontNameLatinModern.
@@ -91,68 +89,81 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
         mathFontScaleDisplay = max(0, mathFont.displayScale)
         scheduleUpdateMath()
     }}
-
-    var ignoreAttributedTextDidSet = false
+    
+    /// Set true to not look for LaTeX between $ ... $ and $$ .... $$.
+    @objc public var ignore$: Bool = false { didSet {
+        var isEditing = false
+        #if os(iOS)
+        isEditing = isEditable && isFirstResponder
+        #endif
+        if oldValue != ignore$, attributedText != nil, !isEditing {
+            attributedText = replaceAttachmentsWithLatex(updateSelection: false)
+        }
+    }}
+    
+    
+    // MARK: - Custom Private Properties
 
     // When text only contains a centered equation textAlignment gets changed to .centered.
     // Use tempAlignment to set the textAlignment back to its original alignment.
-    var tempAlignment: NSTextAlignment? = .natural
-    var ignoreTextAlignmentSet = false
-
+    var desiredTextAlignment: NSTextAlignment!
+    var layingoutSubviews = false
+    var updateScheduled = false
+    
+    var mathFontName: String = MTFontNameLatinModern
+    var mathFontScaleInline: CGFloat = 1.1
+    var mathFontScaleDisplay: CGFloat = 1.2
+    
+    
+    // MARK: - Property overrides
+    
     open override var text: String! {
         get {
-            return super.text == nil ? nil : replaceAttachmentsWithLatex(updateSelection: false).string
+            return replaceAttachmentsWithLatex(updateSelection: false)?.string
         }
         set {
             updateScheduled = false
-            if let tempAlignment {
-                ignoreTextAlignmentSet = true
-                textAlignment = tempAlignment
-                ignoreTextAlignmentSet = false
-                self.tempAlignment = nil
-            }
+            super.textAlignment = desiredTextAlignment
             super.text = newValue
         }
     }
 
     open override var attributedText: NSAttributedString! {
-        willSet {
-            if ignoreAttributedTextDidSet && tempAlignment == nil {
-                tempAlignment = textAlignment
-            }
+        get {
+            return super.attributedText
         }
-        didSet {
-            guard !ignoreAttributedTextDidSet else { return }
+        set {
             updateScheduled = false
+            super.textAlignment = desiredTextAlignment ?? textAlignment
             
-            let unparsedMath = attributedText?.unparseMath()
+            let unparsedMath = newValue?.unparseMath()
             if !isFirstResponder, let latexedAttributedText = unparsedMath?.parseMath(
                 ignore$: ignore$
             ) {
-                ignoreAttributedTextDidSet = true
-                attributedText = latexedAttributedText
+                super.attributedText = latexedAttributedText
                 scheduleUpdateMath()
-                ignoreAttributedTextDidSet = false
             } else {
-                ignoreAttributedTextDidSet = true
-                attributedText = unparsedMath
-                ignoreAttributedTextDidSet = false
+                super.attributedText = unparsedMath
             }
-        }}
-    
-    open override var textAlignment: NSTextAlignment {
-        willSet {
-            if !ignoreTextAlignmentSet && tempAlignment != nil && !ignoreAttributedTextDidSet {
-                tempAlignment = newValue
+            
+            // when setting attributed string with no attributes the alignment gets set to natural
+            if textAlignment == .natural {
+                desiredTextAlignment = .natural
             }
         }
-        didSet {
-            if !ignoreTextAlignmentSet, let centeredDisplayMath = attributedText.centerDisplayMath() {
-                ignoreAttributedTextDidSet = true
-                attributedText = centeredDisplayMath
-                ignoreAttributedTextDidSet = false
+    }
+    
+    open override var textAlignment: NSTextAlignment {
+        get {
+            return super.textAlignment
+        }
+        set {
+            desiredTextAlignment = newValue
+            super.textAlignment = newValue
+            if let centeredDisplayMath = attributedText?.centerDisplayMath() {
+                super.attributedText = centeredDisplayMath
             }
-         }
+        }
     }
     
     open override var font: UIFont! {
@@ -171,18 +182,21 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
         }
     }
     
+    
+    // MARK: - Method overrides
+    
     open override func setNeedsLayout() {
         if !layingoutSubviews {
             super.setNeedsLayout()
         }
     }
     
+    // This makes sure after calling layoutSubtreeIfNeeded() the frame gets updated instantly/correctly.
     open override func layoutIfNeeded() {
         updateMath()
         super.layoutIfNeeded()
     }
-    
-    var layingoutSubviews = false
+
     open override func layoutSubviews() {
         layingoutSubviews = true
         updateMath()
@@ -190,48 +204,49 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
         layingoutSubviews = false
     }
     
+    
+    // MARK: - Custom methods
+    
+    @objc func scheduleUpdateMath() {
+        guard !updateScheduled else { return }
+        updateScheduled = true
+        setNeedsLayout()
+    }
+    
     func updateMath() {
         guard updateScheduled else { return }
         updateScheduled = false
-        guard !ignoreAttributedTextDidSet else { return }
         let scale = traitCollection.displayScale
-        if let attributedString = attributedText.updateMath(
+        if let attributedString = attributedText?.updateMath(
             pixelDensity: scale,
             mathFontName: mathFontName,
             mathFontScaleInline: mathFontScaleInline,
             mathFontScaleDisplay: mathFontScaleDisplay
         ) {
-            ignoreAttributedTextDidSet = true
-            self.attributedText = nil
-            self.attributedText = attributedString
-            ignoreAttributedTextDidSet = false
-            layoutIfNeeded()
+            super.attributedText = nil // when text doesn't change its attachments won't be updated, to force this set to nil first
+            super.textAlignment = desiredTextAlignment // just in case
+            super.attributedText = attributedString
+            //super.layoutIfNeeded() //unnecessary for now
         }
     }
-    
-    var updateScheduled = false
-    @objc func scheduleUpdateMath() {
-        guard !updateScheduled else { return }
-        updateScheduled = true
-        setNeedsLayout() //TODO necessary?
-    }
 
+    
+    // MARK: - Editing
+    
     @objc func didBeginEditing() {
         // selectedRange isn't available yet, so wait
         DispatchQueue.main.async() { [self] in
-            ignoreAttributedTextDidSet = true
             _ = replaceAttachmentsWithLatex(updateSelection: true)
-            ignoreAttributedTextDidSet = false
         }
     }
     
     @objc func didEndEditing() {
-        attributedText = attributedText
-        scheduleUpdateMath()
+        attributedText = attributedText // trigger setter
     }
     
     /// Replaces all text attachments with their LaTeX string, preserving surrounding formatting and keeping the cursor position intact.
-    func replaceAttachmentsWithLatex(updateSelection: Bool) -> NSMutableAttributedString {
+    func replaceAttachmentsWithLatex(updateSelection: Bool) -> NSMutableAttributedString? {
+        guard attributedText != nil else { return nil }
         let mutableAttributedText = NSMutableAttributedString(attributedString: self.attributedText)
         let fullRange = NSRange(location: 0, length: mutableAttributedText.length)
         
@@ -299,12 +314,13 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
         
         if updateSelection {
             // 4. Update text view content and safely assign the adjusted selection range
-            self.attributedText = mutableAttributedText
+            super.attributedText = mutableAttributedText
             
             let safeLocation = max(0, min(targetLocation, mutableAttributedText.length))
             let safeLength = max(0, min(targetLength, mutableAttributedText.length - safeLocation))
             select(self)
             self.selectedRange = NSRange(location: safeLocation, length: safeLength)
+            self.scrollRangeToVisible(self.selectedRange)
         }
         
         return mutableAttributedText
@@ -351,31 +367,23 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
     }
 
     open override func copy(_ sender: Any?) {
-        super.copy(sender)
+
         // Find text attachments and replace them with their respective LaTeX string,
         // then include the selected images and add it all to the pasteboard.
         
         var items = [[String: Any]]()
-        var textAttachments = [(range: NSRange, string: String)]()
         let mutableAttributedSubstring = NSMutableAttributedString(attributedString: attributedText.attributedSubstring(from: selectedRange))
         
         mutableAttributedSubstring.enumerateAttribute(.attachment, in: NSRange(0..<mutableAttributedSubstring.length) , options: []) { (value, range, pointer) in
-            if let textAttachment = value as? MathTextAttachment {
-                textAttachments.append((range, textAttachment.latexWithTags))
-                if let image = textAttachment.image {
-                    items.append(["public.png" : image])
-                }
+            if let textAttachment = value as? MathTextAttachment, let image = textAttachment.image {
+                items.append(["public.png" : image])
             }
         }
-        
-        for attachment in textAttachments.reversed() {
-            mutableAttributedSubstring.replaceCharacters(in: attachment.range, with: attachment.string)
-        }
 
-        let finalString = mutableAttributedSubstring.string.replacingOccurrences(of: " ", with: "") // remove narrow no-break space used to fix a glitch
-        items.insert(["public.utf8-plain-text" : finalString], at: 0)
+        items.insert(["public.utf8-plain-text" : mutableAttributedSubstring.replaceAttachmentsWithLatex()], at: 0)
         UIPasteboard.general.items = items
 
     }
     #endif
 }
+#endif

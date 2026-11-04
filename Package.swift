@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "iosMathText",
     platforms: [
-        .iOS(.v13), .tvOS(.v13)
+        .iOS(.v13), .tvOS(.v13), .macOS(.v10_15),
     ],
     
     products: [
