@@ -52,7 +52,7 @@ defer { mathLabel.layoutIfNeeded() } // optional
 mathLabel.mathFont.name = MTFontNameNewComputerModern
 mathLabel.mathFont.inlineScale = 15
 mathLabel.mathFont.displayScale = 20
-mathLabel.text.ignore$ = true
+mathLabel.ignore$ = true
 mathLabel.text = mathText
 ```
 `layoutIfNeeded()` is not strictly necessary but if you encounter issues you could try it.
