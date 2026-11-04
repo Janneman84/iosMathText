@@ -52,8 +52,8 @@ defer { mathLabel.layoutIfNeeded() } // optional
 mathLabel.mathFont.name = MTFontNameNewComputerModern
 mathLabel.mathFont.inlineScale = 15
 mathLabel.mathFont.displayScale = 20
-mathLabel.text = mathText
 mathLabel.text.ignore$ = true
+mathLabel.text = mathText
 ```
 `layoutIfNeeded()` is not strictly necessary but if you encounter issues you could try it.
 
@@ -77,7 +77,7 @@ So first preparse, then parse, then set to `MathTextView`/`MathTextLabel`.
 ## SwiftUI
 SwifUI doesn't support `NSTextAttachment`s (yet) so you'll need to use `UIViewRepresentable` to implement either `MathLabel` or `MathTextView` in your app. You can ask an LLM how to do this.
 
-### MathLabel vs. MathTextView
+## MathLabel vs. MathTextView
 In UIKit text is typically displayed using either UILabel or UITextView. For AppKit (macOS) this is NSTextView and NSTextField. This package subclasses these classes.
 
 Which to use?
