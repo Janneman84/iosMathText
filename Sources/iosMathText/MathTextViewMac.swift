@@ -390,5 +390,60 @@ open class MathTextView: NSTextView {
 
         /*let success*/ _ = pasteboard.writeObjects(pasteboardItems)
     }
+
+    private var previousSelectedRange: NSRange = NSRange(location: 0, length: 0)
+    
+    // Keep track of selection so the math images will be rendered with the same color as the text.
+    open override func setSelectedRange(_ charRange: NSRange, affinity: NSSelectionAffinity, stillSelecting stillSelectingFlag: Bool) {
+        super.setSelectedRange(charRange, affinity: affinity, stillSelecting: stillSelectingFlag)
+        
+        guard let textStorage = self.textStorage, textStorage.length > 0, charRange != previousSelectedRange else { return }
+        
+        // 1. Calculate affected range (union of old and new)
+        let affectedRange: NSRange
+        if previousSelectedRange.length == 0 && previousSelectedRange.location == 0 {
+            affectedRange = charRange
+        } else {
+            affectedRange = NSUnionRange(previousSelectedRange, charRange)
+        }
+        
+        let safeRange = NSIntersectionRange(affectedRange, NSRange(location: 0, length: textStorage.length))
+        guard safeRange.length > 0 else {
+            previousSelectedRange = charRange
+            return
+        }
+        
+        let selectionForegroundColor = (self.selectedTextAttributes[.foregroundColor] as? NSColor)
+                                       ?? (NSColor.selectedContentBackgroundColor.isDark ? .white : .textColor)
+
+        // 2. Enumerate the affected range
+        textStorage.enumerateAttribute(.attachment, in: safeRange, options: []) { value, range, _ in
+            if let attachment = value as? MathTextAttachment {
+                let isSelected = NSIntersectionRange(range, charRange).length > 0
+                
+                let targetColor: NSColor
+                if isSelected {
+                    targetColor = selectionForegroundColor
+                } else {
+                    let normalColor = textStorage.attribute(.foregroundColor, at: range.location, effectiveRange: nil) as? NSColor
+                                      ?? self.textColor
+                                      ?? NSColor.textColor
+                    targetColor = normalColor
+                    self.layoutManager?.invalidateDisplay(forCharacterRange: range) // gets rid of lingering blue lines
+                }
+                _ = attachment.update(color: targetColor)
+            }
+        }
+        previousSelectedRange = charRange
+        self.needsDisplay = true
+    }
+}
+
+extension NSColor {
+    var isDark: Bool {
+        guard let rgbColor = usingColorSpace(.deviceRGB) else { return false }
+        let brightness = (rgbColor.redComponent * 0.299) + (rgbColor.greenComponent * 0.587) + (rgbColor.blueComponent * 0.114)
+        return brightness < 0.5
+    }
 }
 #endif
