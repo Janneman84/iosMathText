@@ -15,6 +15,7 @@ jobs:
         destination:
           - 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest'
           - 'platform=tvOS Simulator,name=Apple TV,OS=latest'
+          - 'platform=macOS'
       fail-fast: false
 
     steps:
