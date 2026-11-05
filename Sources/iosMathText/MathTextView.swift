@@ -38,6 +38,7 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
     func initialize() {
         guard !initialized else { return }
         initialized = true
+        desiredTextAlignment = textAlignment
         
         NotificationCenter.default.addObserver(self, selector: #selector(scheduleUpdateMath), name: UIContentSizeCategory.didChangeNotification, object: nil)
         #if os(iOS)
@@ -47,7 +48,6 @@ open class MathTextView: UITextView, UIGestureRecognizerDelegate  {
         tapGesture.cancelsTouchesInView = false
         tapGesture.delegate = self
         addGestureRecognizer(tapGesture)
-        desiredTextAlignment = textAlignment
         #endif
     }
     
